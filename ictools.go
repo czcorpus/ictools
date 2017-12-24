@@ -21,12 +21,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/calign"
 	"github.com/czcorpus/ictools/fixgaps"
+	"github.com/czcorpus/ictools/transalign"
 )
 
 func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
@@ -65,9 +67,33 @@ func runFixGaps(filePath string) {
 	fixgaps.FixGaps(file)
 }
 
+func runTransalign(filePath1 string, filePath2 string) {
+	var file1, file2 *os.File
+	var err error
+
+	file1, err = os.Open(filePath1)
+	if err != nil {
+		log.Panicf("Failed to open file %s", filePath1)
+	}
+	file2, err = os.Open(filePath2)
+	if err != nil {
+		log.Panicf("Failed to open file %s", filePath2)
+	}
+	if file2 != file2 {
+
+	}
+	hm1 := transalign.NewHalfMapping(file1)
+	hm1.Load()
+	hm2 := transalign.NewHalfMapping(file2)
+	hm2.Load()
+	transalign.Run(hm1, hm2)
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] calign [registry path 1] [registry path 2] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -82,6 +108,8 @@ func main() {
 			runCalign(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
+		case "transalign":
+			runTransalign(flag.Arg(1), flag.Arg(2))
 		}
 	}
 }
