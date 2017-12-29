@@ -27,8 +27,8 @@ type GoPosAttr struct {
 	attr C.PosAttrV
 }
 
-func (gpa GoPosAttr) Str2ID(value string) int64 {
-	return int64(C.attr_str2id(gpa.attr, C.CString(value)))
+func (gpa GoPosAttr) Str2ID(value string) int {
+	return int(C.attr_str2id(gpa.attr, C.CString(value)))
 }
 
 type GoCorpus struct {

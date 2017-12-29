@@ -82,9 +82,9 @@ func runTransalign(filePath1 string, filePath2 string) {
 	if file2 != file2 {
 
 	}
-	hm1 := transalign.NewHalfMapping(file1)
+	hm1 := transalign.NewPivotMapping(file1)
 	hm1.Load()
-	hm2 := transalign.NewHalfMapping(file2)
+	hm2 := transalign.NewPivotMapping(file2)
 	hm2.Load()
 	transalign.Run(hm1, hm2)
 }

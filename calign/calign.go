@@ -25,9 +25,12 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/czcorpus/ictools/attrib"
+	"github.com/czcorpus/ictools/common"
+	"github.com/czcorpus/ictools/mapping"
 )
 
 var (
@@ -47,18 +50,18 @@ func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) *Processor {
 	}
 }
 
-func (p *Processor) trLine(aligned string, attr attrib.GoPosAttr, lineNr int) (string, error) {
+func (p *Processor) trLine(aligned string, attr attrib.GoPosAttr, lineNr int) (mapping.PosRange, error) {
 	if aligned == "" {
-		return "-1", nil
+		return mapping.PosRange{-1, -1}, nil
 	}
 	elms := strings.Split(aligned, " ")
 	beg, end := elms[0], elms[len(elms)-1]
 	if beg == end {
 		b := attr.Str2ID(beg)
 		if b == -1 {
-			return "", fmt.Errorf("skipping invalid beg/end ('%s') on line %d", beg, lineNr+1)
+			return mapping.PosRange{}, fmt.Errorf("skipping invalid beg/end ('%s') on line %d", beg, lineNr+1)
 		}
-		return fmt.Sprintf("%d", b), nil
+		return mapping.PosRange{b, b}, nil
 	}
 	b := attr.Str2ID(beg)
 	e := attr.Str2ID(end)
@@ -66,48 +69,64 @@ func (p *Processor) trLine(aligned string, attr attrib.GoPosAttr, lineNr int) (s
 	if b == -1 || e == -1 {
 
 		if b == -1 && e == -1 {
-			return "", fmt.Errorf("skipping invalid beg, end ('%s','%s') on line %d", beg, end, lineNr+1)
+			return mapping.PosRange{}, fmt.Errorf("skipping invalid beg, end ('%s','%s') on line %d", beg, end, lineNr+1)
 
 		} else if b == -1 {
 			log.Printf("invalid beg ('%s') on line %d, using end", beg, lineNr+1)
-			return fmt.Sprintf("%d", e), nil
+			return mapping.PosRange{e, e}, nil
 
 		} else {
 			log.Printf("invalid end ('%s') on line %d, using beg", end, lineNr+1)
-			return fmt.Sprintf("%d", b), nil
+			return mapping.PosRange{b, b}, nil
 		}
 	}
-	return fmt.Sprintf("%d,%d", b, e), nil
+	return mapping.PosRange{b, e}, nil
 }
 
-func (p *Processor) processLine(line string, lineNum int) {
+func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, error) {
 	x := attrRegexp2.FindStringSubmatch(line)
 	if len(x) > 0 {
 		aligned := strings.Split(x[1], ";")
 		if len(aligned) > 2 {
-			fmt.Printf("Skipping invalid mapping on line %d", lineNum+1)
-			return
+			return mapping.Mapping{}, fmt.Errorf("Skipping invalid mapping on line %d", lineNum+1)
 		}
-		//fmt.Println("LINE: ", aligned)
-		//fmt.Println(attr1.Str2ID("5_elefan:1:4641:4"))
 		l1, err1 := p.trLine(aligned[0], p.attr1, lineNum)
 		if err1 != nil {
-			log.Print(err1)
+			return mapping.Mapping{}, err1
 		}
 		l2, err2 := p.trLine(aligned[1], p.attr2, lineNum)
 		if err2 != nil {
-			log.Print(err2)
+			return mapping.Mapping{}, err2
 		}
-
-		if err1 == nil && err2 == nil {
-			fmt.Printf("%s\t%s\n", l1, l2)
-		}
+		return mapping.Mapping{l1, l2}, nil
 	}
+	return mapping.Mapping{}, fmt.Errorf("Ignoring line: %d", lineNum)
 }
 
 func (p *Processor) ProcessFile(file *os.File) {
 	reader := bufio.NewScanner(file)
+	initialCap := common.FileSize(file.Name()) / 80. // TODO - estimation
+	items := make([]mapping.Mapping, 0, initialCap)
+	fromUndefItems := make([]mapping.Mapping, 0, initialCap/10)
 	for i := 0; reader.Scan(); i++ {
-		p.processLine(reader.Text(), i)
+		mp, err := p.processLine(reader.Text(), i)
+		if err == nil {
+			if mp.From.First > -1 {
+				items = append(items, mp)
+
+			} else {
+				fromUndefItems = append(fromUndefItems, mp)
+			}
+
+		} else {
+			log.Print(err)
+		}
 	}
+
+	sort.Sort(mapping.SortableMapping(items))
+	sort.Sort(mapping.SortableMapping(fromUndefItems))
+
+	mapping.MergeMappings(items, fromUndefItems, func(item mapping.Mapping) {
+		fmt.Printf("%s\t%s\n", item.From, item.To)
+	})
 }
