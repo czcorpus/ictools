@@ -55,3 +55,12 @@ func FixGapsFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 		fmt.Println(line)
 	}
 }
+
+func FixGapsFromChan(data chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
+	for buff := range data {
+		for _, item := range buff {
+			fmt.Println("item: ", item)
+			onItem(item)
+		}
+	}
+}

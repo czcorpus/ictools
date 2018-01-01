@@ -32,7 +32,7 @@ import (
 	"github.com/czcorpus/ictools/transalign"
 )
 
-func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+func prepareCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) (*os.File, *calign.Processor) {
 	c1 := attrib.OpenCorpus(registryPath1)
 	attr1 := attrib.OpenAttr(c1, attrName)
 	c2 := attrib.OpenCorpus(registryPath2)
@@ -49,7 +49,11 @@ func runCalign(registryPath1 string, registryPath2 string, attrName string, mapp
 			panic(fmt.Sprintf("Failed to open file %s", mappingFilePath))
 		}
 	}
-	processor := calign.NewProcessor(attr1, attr2)
+	return file, calign.NewProcessor(attr1, attr2)
+}
+
+func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
 	processor.ProcessFile(file, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
@@ -94,7 +98,24 @@ func runTransalign(filePath1 string, filePath2 string) {
 	transalign.Run(hm1, hm2)
 }
 
-func runAll() {
+func runAll(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
+	data := make(chan []mapping.Mapping)
+	buff := make([]mapping.Mapping, 0, 100)
+	go func() {
+		processor.ProcessFile(file, func(item mapping.Mapping) {
+			buff = append(buff, item)
+			if len(buff) == 100 {
+				data <- buff
+				log.Print("Sent buff", len(buff))
+				buff = make([]mapping.Mapping, 0, 100)
+			}
+		})
+		close(data)
+	}()
+	fixgaps.FixGapsFromChan(data, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
 
 }
 
@@ -119,6 +140,8 @@ func main() {
 			runFixGaps(flag.Arg(1))
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
+		case "all":
+			runAll(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
 		}
 	}
 }
