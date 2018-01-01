@@ -22,12 +22,12 @@ package fixgaps
 import (
 	"bufio"
 	"fmt"
-	"github.com/czcorpus/ictools/common"
+	"github.com/czcorpus/ictools/mapping"
 	"os"
 	"strings"
 )
 
-func FixGaps(file *os.File) {
+func FixGapsFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
 	lastL1 := -1
 	lastL2 := -1
@@ -36,23 +36,21 @@ func FixGaps(file *os.File) {
 		items := strings.Split(line, "\t")
 		l1t := strings.Split(items[0], ",")
 		l2t := strings.Split(items[1], ",")
-		l11 := common.Str2Int(l1t[0])
-		l12 := common.Str2Int(l1t[len(l1t)-1])
-		l21 := common.Str2Int(l2t[0])
-		l22 := common.Str2Int(l2t[len(l2t)-1])
-		for l11 > lastL1+1 {
+		r1 := mapping.NewPosRange(l1t)
+		r2 := mapping.NewPosRange(l2t)
+		for r1.First > lastL1+1 {
 			lastL1++
-			fmt.Printf("%d\t-1\n", lastL1)
+			onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
 		}
-		for l21 > lastL2+1 {
+		for r2.First > lastL2+1 {
 			lastL2++
-			fmt.Printf("-1\t%d\n", lastL2)
+			onItem(mapping.NewMapping(-1, -1, lastL2, lastL2))
 		}
-		if l12 != -1 {
-			lastL1 = l12
+		if r1.Last != -1 {
+			lastL1 = r1.Last
 		}
-		if l22 != -1 {
-			lastL2 = l22
+		if r2.Last != -1 {
+			lastL2 = r2.Last
 		}
 		fmt.Println(line)
 	}

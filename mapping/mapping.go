@@ -69,6 +69,13 @@ func (m Mapping) String() string {
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
 }
 
+func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
+	return Mapping{
+		PosRange{from1, from2},
+		PosRange{to1, to2},
+	}
+}
+
 // ----------------------------------------------
 
 // SortableMapping implements sort.Interface

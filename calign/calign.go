@@ -103,7 +103,7 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 	return mapping.Mapping{}, fmt.Errorf("Ignoring line: %d", lineNum)
 }
 
-func (p *Processor) ProcessFile(file *os.File) {
+func (p *Processor) ProcessFile(file *os.File, onItem func(item mapping.Mapping)) {
 	reader := bufio.NewScanner(file)
 	initialCap := common.FileSize(file.Name()) / 80. // TODO - estimation
 	items := make([]mapping.Mapping, 0, initialCap)
@@ -126,7 +126,5 @@ func (p *Processor) ProcessFile(file *os.File) {
 	sort.Sort(mapping.SortableMapping(items))
 	sort.Sort(mapping.SortableMapping(fromUndefItems))
 
-	mapping.MergeMappings(items, fromUndefItems, func(item mapping.Mapping) {
-		fmt.Printf("%s\t%s\n", item.From, item.To)
-	})
+	mapping.MergeMappings(items, fromUndefItems, onItem)
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/calign"
 	"github.com/czcorpus/ictools/fixgaps"
+	"github.com/czcorpus/ictools/mapping"
 	"github.com/czcorpus/ictools/transalign"
 )
 
@@ -49,7 +50,9 @@ func runCalign(registryPath1 string, registryPath2 string, attrName string, mapp
 		}
 	}
 	processor := calign.NewProcessor(attr1, attr2)
-	processor.ProcessFile(file)
+	processor.ProcessFile(file, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
 }
 
 func runFixGaps(filePath string) {
@@ -64,7 +67,9 @@ func runFixGaps(filePath string) {
 			panic(fmt.Sprintf("Failed to open file %s", filePath))
 		}
 	}
-	fixgaps.FixGaps(file)
+	fixgaps.FixGapsFromFile(file, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
 }
 
 func runTransalign(filePath1 string, filePath2 string) {
@@ -87,6 +92,10 @@ func runTransalign(filePath1 string, filePath2 string) {
 	hm2 := transalign.NewPivotMapping(file2)
 	hm2.Load()
 	transalign.Run(hm1, hm2)
+}
+
+func runAll() {
+
 }
 
 func main() {
