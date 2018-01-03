@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/calign"
@@ -71,7 +72,7 @@ func runFixGaps(filePath string) {
 			panic(fmt.Sprintf("Failed to open file %s", filePath))
 		}
 	}
-	fixgaps.FixGapsFromFile(file, func(item mapping.Mapping) {
+	fixgaps.FromFile(file, false, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 }
@@ -100,20 +101,22 @@ func runTransalign(filePath1 string, filePath2 string) {
 
 func runAll(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
-	data := make(chan []mapping.Mapping)
-	buff := make([]mapping.Mapping, 0, 100)
+	ch := make(chan []mapping.Mapping, 5)
+	buff := make([]mapping.Mapping, 0, 5000)
 	go func() {
 		processor.ProcessFile(file, func(item mapping.Mapping) {
 			buff = append(buff, item)
-			if len(buff) == 100 {
-				data <- buff
-				log.Print("Sent buff", len(buff))
-				buff = make([]mapping.Mapping, 0, 100)
+			if len(buff) == 5000 {
+				ch <- buff
+				buff = make([]mapping.Mapping, 0, 5000)
 			}
 		})
-		close(data)
+		if len(buff) > 0 {
+			ch <- buff
+		}
+		close(ch)
 	}()
-	fixgaps.FixGapsFromChan(data, func(item mapping.Mapping) {
+	fixgaps.FromChan(ch, false, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 
@@ -133,6 +136,7 @@ func main() {
 		os.Exit(1)
 
 	} else {
+		t1 := time.Now().UnixNano()
 		switch flag.Arg(0) {
 		case "calign":
 			runCalign(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
@@ -143,5 +147,6 @@ func main() {
 		case "all":
 			runAll(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
 		}
+		log.Printf("Finished in %01.2f", float64(time.Now().UnixNano()-t1)/1e9)
 	}
 }

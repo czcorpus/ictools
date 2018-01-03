@@ -16,6 +16,8 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+// Package mapping provides data types and functions used
+// to manipulate numeric mapping between two aligned structures
 package mapping
 
 import (
@@ -69,6 +71,9 @@ func (m Mapping) String() string {
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
 }
 
+// NewMapping creates a new instance of Mapping.
+// The arguments can be understood as follows:
+// from1,from2[TAB]to1,to2
 func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
 	return Mapping{
 		PosRange{from1, from2},

@@ -7,27 +7,34 @@
 // modify it under the terms of the GNU General Public License
 // as published by the Free Software Foundation; either version 2
 // of the License, or (at your option) any later version.
-
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+// Package fixgaps provides functions for filling missing mapping
+// lines to an extracted alignment file.
 package fixgaps
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/czcorpus/ictools/mapping"
 	"os"
 	"strings"
 )
 
-func FixGapsFromFile(file *os.File, onItem func(item mapping.Mapping)) {
+// FromFile inserts [-1, a] or [a, -1] between identifiers
+// A1 and A2 where A2 > A1+1 (but also with respect to two possible
+// positions in a column).
+// Data are read from file 'file'. If startFromZero is true then
+// the list starts from zero else from the first found item.
+// The function does not print anything to stdout.
+func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
 	lastL1 := -1
 	lastL2 := -1
@@ -38,6 +45,10 @@ func FixGapsFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 		l2t := strings.Split(items[1], ",")
 		r1 := mapping.NewPosRange(l1t)
 		r2 := mapping.NewPosRange(l2t)
+		if !startFromZero && lastL1 == -1 && lastL2 == -1 {
+			lastL1 = r1.First
+			lastL2 = r2.First
+		}
 		for r1.First > lastL1+1 {
 			lastL1++
 			onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
@@ -52,14 +63,35 @@ func FixGapsFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 		if r2.Last != -1 {
 			lastL2 = r2.Last
 		}
-		fmt.Println(line)
+		onItem(mapping.Mapping{r1, r2})
 	}
 }
 
-func FixGapsFromChan(data chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
-	for buff := range data {
+// FromChan is the same as FromFile except from the source
+// of data. In this case, a channel is used.
+func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item mapping.Mapping)) {
+	lastL1 := -1
+	lastL2 := -1
+	for buff := range ch {
 		for _, item := range buff {
-			fmt.Println("item: ", item)
+			if !startFromZero && lastL1 == -1 && lastL2 == -1 {
+				lastL1 = item.From.First
+				lastL2 = item.To.First
+			}
+			for item.From.First > lastL1+1 {
+				lastL1++
+				onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
+			}
+			for item.To.First > lastL2+1 {
+				lastL2++
+				onItem(mapping.NewMapping(-1, -1, lastL2, lastL2))
+			}
+			if item.From.Last != -1 {
+				lastL1 = item.From.Last
+			}
+			if item.To.Last != -1 {
+				lastL2 = item.To.Last
+			}
 			onItem(item)
 		}
 	}
