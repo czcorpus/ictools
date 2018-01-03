@@ -7,95 +7,90 @@
 // modify it under the terms of the GNU General Public License
 // as published by the Free Software Foundation; either version 2
 // of the License, or (at your option) any later version.
-
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+// Package transalign provides functions to generate
+// mapping L1 -> L2 from L1 -> P and L2 -> P
 package transalign
 
 import (
 	"fmt"
 	"log"
-	"sort"
 	"time"
+
+	"github.com/czcorpus/ictools/mapping"
 )
 
-type mapping struct {
-	from PosRange
-	to   PosRange
-}
-
-func (m mapping) String() string {
-	return fmt.Sprintf("%s\t%s", m.from, m.to)
-}
-
 // ---------------------------
 
-type sortableMapping []mapping
+func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
+	var step int
 
-func (sm sortableMapping) Len() int {
-	return len(sm)
-}
+	if idx < final {
+		step = 1
 
-func (sm sortableMapping) Swap(i, j int) {
-	sm[i], sm[j] = sm[j], sm[i]
-}
-
-func (sm sortableMapping) Less(i, j int) bool {
-	if sm[i].from.first > -1 && sm[j].from.first > -1 {
-		return sm[i].from.first > sm[j].from.first
-
-	} else if sm[i].from.first == -1 || sm[j].from.first == -1 {
-		return sm[i].to.first > sm[j].to.first
-
-	} else if sm[i].to.first == -1 && sm[j].to.first == -1 {
-		return sm[i].from.first > sm[j].from.first
+	} else {
+		step = -1
 	}
-	panic("unknow type combination")
-}
+	val := -1
 
-// ---------------------------
+	for idx != final && val == -1 {
+		tmp, ok := hMapping.PivotToLang(idx)
+		if !ok {
+			continue
+		}
+		if idx < final {
+			val = tmp.First
 
-func max(v1 int, v2 int) int {
-	if v1 > v2 {
-		return v1
-	}
-	return v2
-}
-
-func calcFinalItem(mapL2L3 []mapping, mapEmptyL3 []mapping) mapping {
-	ifinal := -1
-	if len(mapL2L3) > 0 {
-		ifinal = max(mapL2L3[0].from.last, mapL2L3[0].to.last)
-	}
-	if len(mapEmptyL3) > 0 {
-		ifinal = max(ifinal, mapEmptyL3[0].to.last) // TODO !!! overit
+		} else {
+			val = tmp.Last
+		}
+		idx += step
 	}
 
-	return mapping{
-		PosRange{ifinal, ifinal},
-		PosRange{ifinal, ifinal},
-	}
+	return val
 }
 
-func Run(halfMapping1 *HalfMapping, halfMapping2 *HalfMapping) {
+// enwrapRange checks and extends limit (if necessary)
+// of range r1 to include r2. A possibly extended version
+// of r1 is returned along with status whether the bounds
+// have been changed
+func enwrapRange(r1 mapping.PosRange, r2 mapping.PosRange) (mapping.PosRange, bool) {
+	changed := false
+	if r2.First < r1.First {
+		r1.First = r2.First
+		changed = true
+	}
+	if r2.Last > r1.Last {
+		r1.Last = r2.Last
+		changed = true
+	}
+	return r1, changed
+}
+
+// Run implements an algorith for finding a mapping
+// between L2 and L3 based on two "half mappings"
+// L1 -> L2 and L1 -> L3.
+func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	next := 0
-	mapL2L3 := make([]mapping, 0, halfMapping1.RangesSize()) // TODO size estimation
+	mapL2L3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()) // TODO size estimation
 	// we have to keep one of [-1, x], [x, -1] mapping separate
 	// because these two cannot be sorted together in a traditional way
-	mapEmptyL3 := make([]mapping, 0, halfMapping1.RangesSize()/10) // 10 is just an estimate
+	mapEmptyL3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()/10) // 10 is just an estimate
 	log.Print("Computing new alignment:")
 	t1 := time.Now().UnixNano()
-	for i, rng := range halfMapping1.ranges {
+	for i, rng := range pivotMapping1.pivot {
 		if i == 1000 {
 			t1 = time.Now().UnixNano() - t1
-			log.Printf("estimated proc. time: %01.2f seconds.", float64(t1)*1e-9*1e-3*float64(halfMapping1.RangesSize()))
+			log.Printf("estimated proc. time: %01.2f seconds.", float64(t1)*1e-9*1e-3*float64(pivotMapping1.PivotSize()))
 		}
 		if i < next {
 			continue
@@ -103,70 +98,49 @@ func Run(halfMapping1 *HalfMapping, halfMapping2 *HalfMapping) {
 		changed := true
 		for changed {
 			changed = false
-			if halfMapping2.HasRange(rng.first) {
-				rng, changed = ensureContains(rng, halfMapping2.GetRange(rng.first))
+			if pivotMapping2.HasPivotRange(rng.First) {
+				rng, changed = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.First))
 			}
-			if halfMapping2.HasRange(rng.last) {
+			if pivotMapping2.HasPivotRange(rng.Last) {
 				var lChanged bool
-				rng, lChanged = ensureContains(rng, halfMapping2.GetRange(rng.last))
+				rng, lChanged = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
 				changed = changed || lChanged
 			}
 			if changed {
-				halfMapping1.SetRange(i, rng)
+				pivotMapping1.SetPivotRange(i, rng)
 				changed = false
-				if halfMapping1.HasRange(rng.first) {
-					rng, changed = ensureContains(rng, halfMapping1.GetRange(rng.first))
+				if pivotMapping1.HasPivotRange(rng.First) {
+					rng, changed = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.First))
 				}
-				if halfMapping1.HasRange(rng.last) {
+				if pivotMapping1.HasPivotRange(rng.Last) {
 					var lChanged bool
-					rng, lChanged = ensureContains(rng, halfMapping1.GetRange(rng.last))
+					rng, lChanged = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
 					changed = changed || lChanged
 				}
 			}
 		}
-		next = rng.last + 1
-		l2 := PosRange{
-			skipEmpty(rng.first, rng.last+1, halfMapping1.PivotMap()),
-			skipEmpty(rng.last, rng.first-1, halfMapping1.PivotMap()),
+		next = rng.Last + 1
+		l2 := mapping.PosRange{
+			skipEmpty(rng.First, rng.Last+1, pivotMapping1),
+			skipEmpty(rng.Last, rng.First-1, pivotMapping1),
 		}
-		l3 := PosRange{
-			skipEmpty(rng.first, rng.last+1, halfMapping2.PivotMap()),
-			skipEmpty(rng.last, rng.first-1, halfMapping2.PivotMap()),
+		l3 := mapping.PosRange{
+			skipEmpty(rng.First, rng.Last+1, pivotMapping2),
+			skipEmpty(rng.Last, rng.First-1, pivotMapping2),
 		}
-		if l2.first == -1 && l3.first == -1 { // nothing to export (-1 to -1)
+		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
 			continue
 
-		} else if l2.first != -1 && l3.first == -1 {
-			mapEmptyL3 = append(mapEmptyL3, mapping{l2, l3})
+		} else if l2.First != -1 && l3.First == -1 {
+			mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{l2, l3})
 
 		} else {
-			mapL2L3 = append(mapL2L3, mapping{l2, l3})
+			mapL2L3 = append(mapL2L3, mapping.Mapping{l2, l3})
 		}
 	}
 
-	log.Print("Sorting intermediate data...")
-	sort.Sort(sortableMapping(mapL2L3))
-	sort.Sort(sortableMapping(mapEmptyL3))
-	log.Print("...done.")
 	log.Print("Generating output...")
-
-	finalMapping := calcFinalItem(mapL2L3, mapEmptyL3)
-	iterL2L3 := newMapIterator(mapL2L3, finalMapping)
-	iterL3 := newMapIterator(mapEmptyL3, finalMapping)
-
-	vL2L3 := iterL2L3.Next()
-	vL3 := iterL3.Next()
-	var curr mapping
-	for vL2L3 != finalMapping || vL3 != finalMapping {
-		curr = vL2L3
-		if vL3.from.LessThan(vL2L3.from) {
-			curr = vL3
-			vL3 = iterL3.Next()
-
-		} else {
-			vL2L3 = iterL2L3.Next()
-		}
-		fmt.Println(curr)
-	}
-	log.Print("...done.")
+	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
 }
