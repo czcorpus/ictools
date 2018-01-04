@@ -4,5 +4,8 @@
 
 ## How to build ictools
 
-The program requires [manatee-open](https://nlp.fi.muni.cz/trac/noske/wiki/Downloads) to
-be installed on the system.
+First, check whether [manatee-open](https://nlp.fi.muni.cz/trac/noske/wiki/Downloads) is installed on your system. E.g. by `ldconfig -p | grep manatee`. A working installation of [Go](https://www.golang.org) must be also available. 
+
+```
+go get https://github.com/czcorpus/ictools
+```
