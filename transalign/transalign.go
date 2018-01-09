@@ -120,21 +120,21 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 		}
 		next = rng.Last + 1
 		l2 := mapping.PosRange{
-			skipEmpty(rng.First, rng.Last+1, pivotMapping1),
-			skipEmpty(rng.Last, rng.First-1, pivotMapping1),
+			First: skipEmpty(rng.First, rng.Last+1, pivotMapping1),
+			Last:  skipEmpty(rng.Last, rng.First-1, pivotMapping1),
 		}
 		l3 := mapping.PosRange{
-			skipEmpty(rng.First, rng.Last+1, pivotMapping2),
-			skipEmpty(rng.Last, rng.First-1, pivotMapping2),
+			First: skipEmpty(rng.First, rng.Last+1, pivotMapping2),
+			Last:  skipEmpty(rng.Last, rng.First-1, pivotMapping2),
 		}
 		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
 			continue
 
 		} else if l2.First != -1 && l3.First == -1 {
-			mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{l2, l3})
+			mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{From: l2, To: l3})
 
 		} else {
-			mapL2L3 = append(mapL2L3, mapping.Mapping{l2, l3})
+			mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
 		}
 	}
 

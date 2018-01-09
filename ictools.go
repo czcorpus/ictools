@@ -98,7 +98,8 @@ func runTransalign(filePath1 string, filePath2 string) {
 	transalign.Run(hm1, hm2)
 }
 
-func runAll(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+// runCalign2 runs both 'calign' and 'fixgaps' functions
+func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
 	ch := make(chan []mapping.Mapping, 5)
 	buff := make([]mapping.Mapping, 0, 5000)
@@ -123,7 +124,8 @@ func runAll(registryPath1 string, registryPath2 string, attrName string, mapping
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] calign [registry path 1] [registry path 2] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] calign [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] calign2 [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
@@ -143,9 +145,11 @@ func main() {
 			runFixGaps(flag.Arg(1))
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
-		case "all":
-			runAll(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
+		case "calign2":
+			runCalign2(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
+		default:
+			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
 		}
-		log.Printf("Finished in %01.2f", float64(time.Now().UnixNano()-t1)/1e9)
+		log.Printf("Finished in %01.2f sec.", float64(time.Now().UnixNano()-t1)/1e9)
 	}
 }
