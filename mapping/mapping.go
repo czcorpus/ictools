@@ -113,35 +113,63 @@ func (sm SortableMapping) Less(i, j int) bool {
 
 // ----------------------------------------------
 
-// Iterator is used to merge two sorted
-// mappings together.
+// Iterator is used when merging two sorted mappings together.
+// It provides a way how to apply a function to each item rather
+// than exposing the item. It also remembers whether the function
+// has been applied to the actual item which allows deciding whether
+// there are any unapplied items (which is used in the merging algorithm).
 type Iterator struct {
-	mapping []Mapping
-	currIdx int
-	final   Mapping
+	mapping     []Mapping
+	currIdx     int
+	cycleClosed bool
 }
 
 // NewIterator creates a new Iterator instance
-func NewIterator(data []Mapping, final Mapping) Iterator {
+func NewIterator(data []Mapping) Iterator {
 	return Iterator{
-		mapping: data,
-		currIdx: 0,
-		final:   final,
+		mapping:     data,
+		currIdx:     -1,
+		cycleClosed: true,
 	}
 }
 
-// Next returns the next mapping item. In
-// case the last item is reached, Next returns
-// a special 'final' item which is manually
-// set when instantiating the iterator.
-func (m *Iterator) Next() Mapping {
-	defer func() {
+// Apply calls a provided function with the current
+// item as its argument. After the method is called,
+// HasUnappliedItem() returns false until Next() is
+// called.
+func (m *Iterator) Apply(onItem func(item Mapping)) {
+	onItem(m.mapping[m.currIdx])
+	m.cycleClosed = true
+}
+
+// CurrLessThan compares latest items of two iterators
+// and returns true if the item from the first one is
+// less then (see how LessThan is defined on PosRange)
+// the second one.
+func (m *Iterator) CurrLessThan(m2 *Iterator) bool {
+	return m.mapping[m.currIdx].To.LessThan(m2.mapping[m2.currIdx].To)
+}
+
+// HasUnappliedItem tells whether the last Next()
+// call was followed by Apply().
+func (m *Iterator) HasUnappliedItem() bool {
+	return !m.cycleClosed
+}
+
+// Next moves an internal index to the next item.
+// In case the index reached the end, nothing is
+// done.
+func (m *Iterator) Next() {
+	if m.currIdx < len(m.mapping)-1 {
 		m.currIdx++
-	}()
-	if m.currIdx < len(m.mapping) {
-		return m.mapping[m.currIdx]
+		m.cycleClosed = false
 	}
-	return m.final
+}
+
+// Unfinished tells whether Next() will
+// provide another item.
+func (m *Iterator) Unfinished() bool {
+	return m.currIdx < len(m.mapping)-1
 }
 
 // ----------------------------------------------
@@ -151,21 +179,6 @@ func max(v1 int, v2 int) int {
 		return v1
 	}
 	return v2
-}
-
-func calcFinalItem(mainMapping []Mapping, backEmptyMapping []Mapping) Mapping {
-	ifinal := -1
-	if len(mainMapping) > 0 {
-		ifinal = max(mainMapping[len(mainMapping)-1].From.Last, mainMapping[len(mainMapping)-1].To.Last)
-	}
-	if len(backEmptyMapping) > 0 {
-		ifinal = max(ifinal, backEmptyMapping[len(backEmptyMapping)-1].To.Last)
-	}
-
-	return Mapping{
-		PosRange{ifinal, ifinal},
-		PosRange{ifinal, ifinal},
-	}
 }
 
 // MergeMappings merges two sorted mappings, one containing items
@@ -178,23 +191,38 @@ func calcFinalItem(mainMapping []Mapping, backEmptyMapping []Mapping) Mapping {
 // items. It's up to a function user to provide a function
 // specifying what to do with each item.
 func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping)) {
-	finalMapping := calcFinalItem(mainMapping, mapFromEmpty)
-	iterL2L3 := NewIterator(mainMapping, finalMapping)
-	iterL3 := NewIterator(mapFromEmpty, finalMapping)
+	iterL2L3 := NewIterator(mainMapping)
+	iterL3 := NewIterator(mapFromEmpty)
 
-	vL2L3 := iterL2L3.Next()
-	vL3 := iterL3.Next()
-	var curr Mapping
-	for vL2L3 != finalMapping || vL3 != finalMapping {
-		if vL3.To.LessThan(vL2L3.To) {
-			curr = vL3
-			vL3 = iterL3.Next()
+	iterL3.Next()
+	iterL2L3.Next()
+	for iterL2L3.Unfinished() || iterL3.Unfinished() {
+		if iterL3.CurrLessThan(&iterL2L3) {
+			iterL3.Apply(onItem)
+			iterL3.Next()
 
 		} else {
-			curr = vL2L3
-			vL2L3 = iterL2L3.Next()
+			iterL2L3.Apply(onItem)
+			iterL2L3.Next()
 		}
-		onItem(curr)
 	}
+
+	if iterL3.HasUnappliedItem() && iterL2L3.HasUnappliedItem() {
+		if iterL3.CurrLessThan(&iterL2L3) {
+			iterL3.Apply(onItem)
+			iterL2L3.Apply(onItem)
+
+		} else {
+			iterL2L3.Apply(onItem)
+			iterL3.Apply(onItem)
+		}
+
+	} else if iterL3.HasUnappliedItem() {
+		iterL3.Apply(onItem)
+
+	} else if iterL2L3.HasUnappliedItem() {
+		iterL2L3.Apply(onItem)
+	}
+
 	log.Print("...done.")
 }
