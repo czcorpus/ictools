@@ -30,13 +30,21 @@ import (
 )
 
 const (
+	// a magical constant to estimate the size of
+	// PivotMapping internal data slice
 	fileToCapacityRatio = 9
 )
 
+// PosRangeMap maps data rows to PosRange values
+// in other language
 type PosRangeMap map[int]mapping.PosRange
 
 // PivotMapping represents a list of mappings
 // from a pivot language to a non-pivot one.
+// The mapping is in expanded form which means
+// that each data row with range r1, r2 (r2 > r1)
+// is stored as r1, r1+1, ..., r2-1, r2 (but each
+// line still knows the original range it belongs to)
 type PivotMapping struct {
 	// source file
 	file *os.File
@@ -47,7 +55,9 @@ type PivotMapping struct {
 	// maps ranges from pivot to the other language
 	pivotToLang map[int]mapping.PosRange
 
-	// maps indices to position ranges (pivot language)
+	// pivot maps indices (= data rows) to position ranges (pivot language).
+	// PosRange with To > From is cloned across all lines it describes.
+	// e.g. PosRange{3, 5} will exist in three instances on lines 3, 4 and 5.
 	pivot []mapping.PosRange
 
 	// estimation of items number for efficient memory pre-allocation
@@ -68,22 +78,29 @@ func NewPivotMapping(file *os.File) *PivotMapping {
 	}
 }
 
+// PivotSize returns number of data lines in pivot language
 func (hm *PivotMapping) PivotSize() int {
 	return len(hm.pivot)
 }
 
+// GetPivotRange returns a range located on a specified data line
 func (hm *PivotMapping) GetPivotRange(idx int) mapping.PosRange {
 	return hm.pivot[idx]
 }
 
+// SetPivotRange sets a range for a specified line
 func (hm *PivotMapping) SetPivotRange(idx int, v mapping.PosRange) {
 	hm.pivot[idx] = v
 }
 
+// HasPivotRange tests whether there is a data line
+// containing a PosRange.
 func (hm *PivotMapping) HasPivotRange(idx int) bool {
 	return idx < len(hm.pivot)
 }
 
+// PivotToLang translates a data line of pivot lang. into a PosRange
+// within the other lang.
 func (hm *PivotMapping) PivotToLang(idx int) (mapping.PosRange, bool) {
 	ans, ok := hm.pivotToLang[idx]
 	return ans, ok
