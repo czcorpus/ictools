@@ -197,7 +197,7 @@ func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(it
 	iterL3.Next()
 	iterL2L3.Next()
 	for iterL2L3.Unfinished() || iterL3.Unfinished() {
-		if iterL3.CurrLessThan(&iterL2L3) {
+		if iterL3.CurrLessThan(&iterL2L3) && iterL3.Unfinished() {
 			iterL3.Apply(onItem)
 			iterL3.Next()
 
