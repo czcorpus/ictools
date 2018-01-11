@@ -18,6 +18,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -52,9 +53,9 @@ func prepareCalign(registryPath1 string, registryPath2 string, attrName string, 
 	return file, calign.NewProcessor(attr1, attr2)
 }
 
-func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
-	processor.ProcessFile(file, func(item mapping.Mapping) {
+	processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 }
@@ -99,12 +100,12 @@ func runTransalign(filePath1 string, filePath2 string) {
 }
 
 // runCalign2 runs both 'calign' and 'fixgaps' functions
-func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) {
+func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
 	ch := make(chan []mapping.Mapping, 5)
 	buff := make([]mapping.Mapping, 0, 5000)
 	go func() {
-		processor.ProcessFile(file, func(item mapping.Mapping) {
+		processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
 			buff = append(buff, item)
 			if len(buff) == 5000 {
 				ch <- buff
@@ -130,6 +131,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
+	var bufferSize int
+	flag.IntVar(&bufferSize, "buffer-size", bufio.MaxScanTokenSize, "Max line buffer size")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -140,13 +143,13 @@ func main() {
 		t1 := time.Now().UnixNano()
 		switch flag.Arg(0) {
 		case "calign":
-			runCalign(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
+			runCalign(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4), bufferSize)
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
 		case "calign2":
-			runCalign2(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4))
+			runCalign2(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4), bufferSize)
 		default:
 			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
 		}

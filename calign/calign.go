@@ -118,8 +118,9 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 // transforms them into a numeric representation based on internal
 // identifiers used by Manatee.
 // The function does not print anything to stdout.
-func (p *Processor) ProcessFile(file *os.File, onItem func(item mapping.Mapping)) {
+func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping)) {
 	reader := bufio.NewScanner(file)
+	reader.Buffer(make([]byte, bufio.MaxScanTokenSize), bufferSize)
 	initialCap := common.FileSize(file.Name()) / 80. // TODO - estimation
 	items := make([]mapping.Mapping, 0, initialCap)
 	fromUndefItems := make([]mapping.Mapping, 0, initialCap/10)

@@ -43,14 +43,13 @@ func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 
 	for idx != final && val == -1 {
 		tmp, ok := hMapping.PivotToLang(idx)
-		if !ok {
-			continue
-		}
-		if idx < final {
-			val = tmp.First
+		if ok {
+			if idx < final {
+				val = tmp.First
 
-		} else {
-			val = tmp.Last
+			} else {
+				val = tmp.Last
+			}
 		}
 		idx += step
 	}
