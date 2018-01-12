@@ -53,7 +53,7 @@ type PivotMapping struct {
 	reader *bufio.Scanner
 
 	// maps ranges from pivot to the other language
-	pivotToLang map[int]mapping.PosRange
+	pivotToLang map[int]*mapping.PosRange
 
 	// pivot maps indices (= data rows) to position ranges (pivot language).
 	// PosRange with To > From is cloned across all lines it describes.
@@ -72,7 +72,7 @@ func NewPivotMapping(file *os.File) *PivotMapping {
 	return &PivotMapping{
 		file:        file,
 		reader:      bufio.NewScanner(file),
-		pivotToLang: make(map[int]mapping.PosRange),
+		pivotToLang: make(map[int]*mapping.PosRange),
 		itemsEstim:  initialCap,
 		pivot:       make([]*mapping.PosRange, initialCap),
 	}
@@ -101,7 +101,7 @@ func (hm *PivotMapping) HasPivotRange(idx int) bool {
 
 // PivotToLang translates a data line of pivot lang. into a PosRange
 // within the other lang.
-func (hm *PivotMapping) PivotToLang(idx int) (mapping.PosRange, bool) {
+func (hm *PivotMapping) PivotToLang(idx int) (*mapping.PosRange, bool) {
 	ans, ok := hm.pivotToLang[idx]
 	return ans, ok
 }
@@ -114,7 +114,7 @@ func (hm *PivotMapping) Name() string {
 func (hm *PivotMapping) Load() {
 	var part int
 	log.Printf("Loading %s ...", hm.file.Name())
-	for i := 0; hm.reader.Scan(); i++ {
+	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
 		// the mapping in the file is (L2 -> L1/pivot)
 		pivot := strings.Split(elms[1], ",")
@@ -125,7 +125,7 @@ func (hm *PivotMapping) Load() {
 		pivotPair := mapping.NewPosRange(pivot)
 		l2Pair := mapping.NewPosRange(l2)
 		for part = pivotPair.First; part <= pivotPair.Last; part++ {
-			hm.pivotToLang[part] = l2Pair
+			hm.pivotToLang[part] = &l2Pair
 			if part >= len(hm.pivot) {
 				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, part-len(hm.pivot)+1)...)
 			}
