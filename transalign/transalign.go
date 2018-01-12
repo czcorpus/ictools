@@ -58,10 +58,9 @@ func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 }
 
 // enwrapRange checks and extends limit (if necessary)
-// of range r1 to include r2. A possibly extended version
-// of r1 is returned along with status whether the bounds
-// have been changed
-func enwrapRange(r1 mapping.PosRange, r2 mapping.PosRange) (mapping.PosRange, bool) {
+// of range r1 to include r2. Status whether the bounds
+// have been changed is returned.
+func enwrapRange(r1 *mapping.PosRange, r2 *mapping.PosRange) bool {
 	changed := false
 	if r2.First < r1.First {
 		r1.First = r2.First
@@ -71,7 +70,7 @@ func enwrapRange(r1 mapping.PosRange, r2 mapping.PosRange) (mapping.PosRange, bo
 		r1.Last = r2.Last
 		changed = true
 	}
-	return r1, changed
+	return changed
 }
 
 // Run implements an algorith for finding a mapping
@@ -90,29 +89,29 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			t1 = time.Now().UnixNano() - t1
 			log.Printf("estimated proc. time: %01.2f seconds.", float64(t1)*1e-9*1e-3*float64(pivotMapping1.PivotSize()))
 		}
-		if i < next {
+		if i < next || rng == nil {
 			continue
 		}
 		changed := true
 		for changed {
 			changed = false
 			if pivotMapping2.HasPivotRange(rng.First) {
-				rng, changed = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.First))
+				changed = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.First))
 			}
 			if pivotMapping2.HasPivotRange(rng.Last) {
 				var lChanged bool
-				rng, lChanged = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
+				lChanged = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
 				changed = changed || lChanged
 			}
 			if changed {
 				pivotMapping1.SetPivotRange(i, rng)
 				changed = false
 				if pivotMapping1.HasPivotRange(rng.First) {
-					rng, changed = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.First))
+					changed = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.First))
 				}
 				if pivotMapping1.HasPivotRange(rng.Last) {
 					var lChanged bool
-					rng, lChanged = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
+					lChanged = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
 					changed = changed || lChanged
 				}
 			}
