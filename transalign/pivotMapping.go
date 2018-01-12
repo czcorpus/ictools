@@ -58,7 +58,7 @@ type PivotMapping struct {
 	// pivot maps indices (= data rows) to position ranges (pivot language).
 	// PosRange with To > From is cloned across all lines it describes.
 	// e.g. PosRange{3, 5} will exist in three instances on lines 3, 4 and 5.
-	pivot []mapping.PosRange
+	pivot []*mapping.PosRange
 
 	// estimation of items number for efficient memory pre-allocation
 	itemsEstim int
@@ -74,7 +74,7 @@ func NewPivotMapping(file *os.File) *PivotMapping {
 		reader:      bufio.NewScanner(file),
 		pivotToLang: make(map[int]mapping.PosRange),
 		itemsEstim:  initialCap,
-		pivot:       make([]mapping.PosRange, initialCap),
+		pivot:       make([]*mapping.PosRange, initialCap),
 	}
 }
 
@@ -84,19 +84,19 @@ func (hm *PivotMapping) PivotSize() int {
 }
 
 // GetPivotRange returns a range located on a specified data line
-func (hm *PivotMapping) GetPivotRange(idx int) mapping.PosRange {
+func (hm *PivotMapping) GetPivotRange(idx int) *mapping.PosRange {
 	return hm.pivot[idx]
 }
 
 // SetPivotRange sets a range for a specified line
-func (hm *PivotMapping) SetPivotRange(idx int, v mapping.PosRange) {
+func (hm *PivotMapping) SetPivotRange(idx int, v *mapping.PosRange) {
 	hm.pivot[idx] = v
 }
 
 // HasPivotRange tests whether there is a data line
 // containing a PosRange.
 func (hm *PivotMapping) HasPivotRange(idx int) bool {
-	return idx < len(hm.pivot)
+	return idx < len(hm.pivot) && hm.pivot[idx] != nil
 }
 
 // PivotToLang translates a data line of pivot lang. into a PosRange
@@ -106,26 +106,30 @@ func (hm *PivotMapping) PivotToLang(idx int) (mapping.PosRange, bool) {
 	return ans, ok
 }
 
+func (hm *PivotMapping) Name() string {
+	return hm.file.Name()
+}
+
 // Load loads the respective data from a predefined file.
 func (hm *PivotMapping) Load() {
 	var part int
 	log.Printf("Loading %s ...", hm.file.Name())
-	for hm.reader.Scan() {
+	for i := 0; hm.reader.Scan(); i++ {
 		elms := strings.Split(hm.reader.Text(), "\t")
 		// the mapping in the file is (L2 -> L1/pivot)
-		l1 := strings.Split(elms[1], ",")
-		if l1[0] == "-1" {
+		pivot := strings.Split(elms[1], ",")
+		if pivot[0] == "-1" {
 			continue
 		}
 		l2 := strings.Split(elms[0], ",")
-		l1Pair := mapping.NewPosRange(l1)
+		pivotPair := mapping.NewPosRange(pivot)
 		l2Pair := mapping.NewPosRange(l2)
-		for part = l1Pair.First; part <= l1Pair.Last; part++ {
+		for part = pivotPair.First; part <= pivotPair.Last; part++ {
 			hm.pivotToLang[part] = l2Pair
 			if part >= len(hm.pivot) {
-				hm.pivot = append(hm.pivot, make([]mapping.PosRange, hm.itemsEstim/2)...)
+				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, part-len(hm.pivot)+1)...)
 			}
-			hm.pivot[part] = l1Pair
+			hm.pivot[part] = &pivotPair
 		}
 	}
 	hm.pivot = hm.pivot[:part+1]
