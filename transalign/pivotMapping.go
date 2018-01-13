@@ -45,6 +45,7 @@ type PosRangeMap map[int]mapping.PosRange
 // that each data row with range r1, r2 (r2 > r1)
 // is stored as r1, r1+1, ..., r2-1, r2 (but each
 // line still knows the original range it belongs to)
+
 type PivotMapping struct {
 	// source file
 	file *os.File
@@ -62,6 +63,8 @@ type PivotMapping struct {
 
 	// estimation of items number for efficient memory pre-allocation
 	itemsEstim int
+
+	minIdx int
 }
 
 // NewPivotMapping creates a new instance of PivotMapping
@@ -75,6 +78,7 @@ func NewPivotMapping(file *os.File) *PivotMapping {
 		pivotToLang: make(map[int]*mapping.PosRange),
 		itemsEstim:  initialCap,
 		pivot:       make([]*mapping.PosRange, initialCap),
+		minIdx:      0,
 	}
 }
 
@@ -85,18 +89,19 @@ func (hm *PivotMapping) PivotSize() int {
 
 // GetPivotRange returns a range located on a specified data line
 func (hm *PivotMapping) GetPivotRange(idx int) *mapping.PosRange {
-	return hm.pivot[idx]
+	return hm.pivot[hm.index(idx)]
 }
 
 // SetPivotRange sets a range for a specified line
 func (hm *PivotMapping) SetPivotRange(idx int, v *mapping.PosRange) {
-	hm.pivot[idx] = v
+	hm.pivot[hm.index(idx)] = v
 }
 
 // HasPivotRange tests whether there is a data line
 // containing a PosRange.
 func (hm *PivotMapping) HasPivotRange(idx int) bool {
-	return idx < len(hm.pivot) && hm.pivot[idx] != nil
+	i := hm.index(idx)
+	return idx >= hm.minIdx && i < len(hm.pivot) && hm.pivot[i] != nil
 }
 
 // PivotToLang translates a data line of pivot lang. into a PosRange
@@ -106,14 +111,24 @@ func (hm *PivotMapping) PivotToLang(idx int) (*mapping.PosRange, bool) {
 	return ans, ok
 }
 
+// Name returns a name of a source data file
 func (hm *PivotMapping) Name() string {
 	return hm.file.Name()
+}
+
+func (hm *PivotMapping) index(i int) int {
+	return i - hm.minIdx
+}
+
+func (hm *PivotMapping) deindex(i int) int {
+	return i + hm.minIdx
 }
 
 // Load loads the respective data from a predefined file.
 func (hm *PivotMapping) Load() {
 	var part int
 	log.Printf("Loading %s ...", hm.file.Name())
+	i := 0
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
 		// the mapping in the file is (L2 -> L1/pivot)
@@ -124,14 +139,18 @@ func (hm *PivotMapping) Load() {
 		l2 := strings.Split(elms[0], ",")
 		pivotPair := mapping.NewPosRange(pivot)
 		l2Pair := mapping.NewPosRange(l2)
+		if i == 0 {
+			hm.minIdx = pivotPair.First
+		}
 		for part = pivotPair.First; part <= pivotPair.Last; part++ {
 			hm.pivotToLang[part] = &l2Pair
-			if part >= len(hm.pivot) {
-				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, part-len(hm.pivot)+1)...)
+			if hm.index(part) >= len(hm.pivot) {
+				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, hm.index(part)-len(hm.pivot)+1)...)
 			}
-			hm.pivot[part] = &pivotPair
+			hm.pivot[hm.index(part)] = &pivotPair
 		}
+		i++
 	}
-	hm.pivot = hm.pivot[:part+1]
+	hm.pivot = hm.pivot[:hm.index(part+1)]
 	log.Printf("...done.")
 }

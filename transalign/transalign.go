@@ -23,7 +23,6 @@ package transalign
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/czcorpus/ictools/mapping"
 )
@@ -83,12 +82,9 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	// because these two cannot be sorted together in a traditional way
 	mapEmptyL3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()/10) // 10 is just an estimate
 	log.Print("Computing new alignment:")
-	t1 := time.Now().UnixNano()
-	for i, rng := range pivotMapping1.pivot {
-		if i == 1000 {
-			t1 = time.Now().UnixNano() - t1
-			log.Printf("estimated proc. time: %01.2f seconds.", float64(t1)*1e-9*1e-3*float64(pivotMapping1.PivotSize()))
-		}
+	var i int
+	for ix, rng := range pivotMapping1.pivot {
+		i = pivotMapping1.deindex(ix)
 		if i < next || rng == nil {
 			continue
 		}
@@ -135,7 +131,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
 		}
 	}
-
+	log.Print("...Done.")
 	log.Print("Generating output...")
 	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping) {
 		fmt.Println(item)
