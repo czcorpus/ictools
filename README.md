@@ -39,8 +39,12 @@ ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 
 ### The "old way"
 
-This is for legacy reasons which should work in a similar way to "classic" Python scripts *calign.py*, *calign_test.py*, *compressrng.py*, *fixgaps.py*, *transalign.py*.
+This is for legacy reasons and it should work in a similar way to the Python scripts  *calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
 
 ```
-ictools calign .... | ictools fixgaps ... | ictools compressrng > output-file
+ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs | ictools fixgaps | ictools compressrng > intercorp.pl2cs
+
+ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs | ictools fixgaps | ictools compressrng > intercorp.en2cs
+
+ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 ```
