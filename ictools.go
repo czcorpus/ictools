@@ -100,26 +100,48 @@ func runTransalign(filePath1 string, filePath2 string) {
 }
 
 // runCalign2 runs both 'calign' and 'fixgaps' functions
-func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int) {
+func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int, noCompress bool) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
-	ch := make(chan []mapping.Mapping, 5)
-	buff := make([]mapping.Mapping, 0, 5000)
+	ch1 := make(chan []mapping.Mapping, 5)
+	buff1 := make([]mapping.Mapping, 0, 5000)
 	go func() {
 		processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
-			buff = append(buff, item)
-			if len(buff) == 5000 {
-				ch <- buff
-				buff = make([]mapping.Mapping, 0, 5000)
+			buff1 = append(buff1, item)
+			if len(buff1) == 5000 {
+				ch1 <- buff1
+				buff1 = make([]mapping.Mapping, 0, 5000)
 			}
 		})
-		if len(buff) > 0 {
-			ch <- buff
+		if len(buff1) > 0 {
+			ch1 <- buff1
 		}
-		close(ch)
+		close(ch1)
 	}()
-	fixgaps.FromChan(ch, false, func(item mapping.Mapping) {
-		fmt.Println(item)
-	})
+
+	if noCompress {
+		fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
+			fmt.Println(item)
+		})
+
+	} else {
+		ch2 := make(chan []mapping.Mapping, 5)
+		buff2 := make([]mapping.Mapping, 0, 5000)
+		fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
+			buff2 = append(buff2, item)
+			if len(buff2) == 5000 {
+				ch2 <- buff2
+				buff2 = make([]mapping.Mapping, 0, 5000)
+			}
+		})
+		if len(buff2) > 0 {
+			ch2 <- buff2
+		}
+		close(ch2)
+
+		calign.CompressFromChan(ch2, func(item mapping.Mapping) {
+			fmt.Println(item)
+		})
+	}
 
 }
 
@@ -135,6 +157,8 @@ func main() {
 	flag.IntVar(&bufferSize, "buffer-size", bufio.MaxScanTokenSize, "Max line buffer size")
 	var registryPath string
 	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files")
+	var noCompress bool
+	flag.BoolVar(&noCompress, "no-compress", false, "Do not compress intermediate data (needs more ram/disk)")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -155,7 +179,7 @@ func main() {
 		case "calign2":
 			r1Path := filepath.Join(registryPath, flag.Arg(1))
 			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runCalign2(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize)
+			runCalign2(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize, noCompress)
 		default:
 			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
 		}
