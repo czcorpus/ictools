@@ -81,6 +81,23 @@ func runFixGaps(filePath string) {
 	})
 }
 
+func runCompress(filePath string) {
+	var file *os.File
+	var err error
+	if filePath == "" {
+		file = os.Stdin
+
+	} else {
+		file, err = os.Open(filePath)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to open file %s", filePath))
+		}
+	}
+	calign.CompressFromFile(file, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
+}
+
 func runTransalign(filePath1 string, filePath2 string) {
 	var file1, file2 *os.File
 	var err error
@@ -103,10 +120,10 @@ func runTransalign(filePath1 string, filePath2 string) {
 	transalign.Run(hm1, hm2)
 }
 
-// runCalign2 runs both 'calign' and 'fixgaps' functions
-// The function create 1 or 2 (depends on whether
+// runImport runs [calign] > [fixgaps] > [compress]? functions.
+// The function creates 1 or 2 (depends on whether
 // noCompress is false/true) new goroutines.
-func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int, noCompress bool) {
+func runImport(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int, noCompress bool) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
@@ -154,10 +171,11 @@ func runCalign2(registryPath1 string, registryPath2 string, attrName string, map
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] calign [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] calign2 [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] calign [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] compressrng [file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var bufferSize int
@@ -175,18 +193,20 @@ func main() {
 	} else {
 		t1 := time.Now().UnixNano()
 		switch flag.Arg(0) {
+		case "transalign":
+			runTransalign(flag.Arg(1), flag.Arg(2))
+		case "import":
+			r1Path := filepath.Join(registryPath, flag.Arg(1))
+			r2Path := filepath.Join(registryPath, flag.Arg(2))
+			runImport(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize, noCompress)
 		case "calign":
 			r1Path := filepath.Join(registryPath, flag.Arg(1))
 			r2Path := filepath.Join(registryPath, flag.Arg(2))
 			runCalign(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize)
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
-		case "transalign":
-			runTransalign(flag.Arg(1), flag.Arg(2))
-		case "calign2":
-			r1Path := filepath.Join(registryPath, flag.Arg(1))
-			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runCalign2(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize, noCompress)
+		case "compressrng":
+			runCompress(flag.Arg(1))
 		default:
 			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
 		}

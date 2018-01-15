@@ -19,6 +19,9 @@
 package calign
 
 import (
+	"bufio"
+	"os"
+
 	"github.com/czcorpus/ictools/mapping"
 )
 
@@ -35,56 +38,75 @@ func mkMapping(beg int, end int, rightEmpty bool) mapping.Mapping {
 	return mapping.NewMapping(-1, -1, beg, end)
 }
 
+func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(item mapping.Mapping)) {
+	if item.To.First == -1 {
+		if lastItem.From.First == -2 {
+			lastItem.From.First = item.From.First
+			lastItem.From.Last = item.From.Last
+
+		} else {
+			lastItem.From.Last = item.From.Last
+		}
+		return
+
+	} else if lastItem.From.First != -2 {
+		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
+		lastItem.From.First = -2
+	}
+
+	if item.From.First == -1 {
+		if lastItem.To.First == -2 {
+			lastItem.To.First = item.To.First
+			lastItem.To.Last = item.To.Last
+
+		} else {
+			lastItem.To.Last = item.To.Last
+		}
+		return
+
+	} else if lastItem.To.First != -2 {
+		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
+		lastItem.To.First = -2
+	}
+	onItem(*item)
+}
+
 // CompressFromChan reduces subsequent lines with -1 in one of the columns
 // to a single line with proper range (e.g. "-1   am,an" where 'am' is the
 // beginning of the first line in the series and 'am' is the end of the last
 // line in the series.
 func CompressFromChan(ch chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
-	fromFirst := -2 // -2 is an empty value placeholder
-	fromLast := -2
-	toFirst := -2
-	toLast := -2
+	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for buff := range ch {
 		for _, item := range buff {
-
-			if item.To.First == -1 {
-				if fromFirst == -2 {
-					fromFirst = item.From.First
-					fromLast = item.From.Last
-
-				} else {
-					fromLast = item.From.Last
-				}
-				continue
-
-			} else if fromFirst != -2 {
-				onItem(mkMapping(fromFirst, fromLast, true))
-				fromFirst = -2
-			}
-
-			if item.From.First == -1 {
-				if toFirst == -2 {
-					toFirst = item.To.First
-					toLast = item.To.Last
-
-				} else {
-					toLast = item.To.Last
-				}
-				continue
-
-			} else if toFirst != -2 {
-				onItem(mkMapping(toFirst, toLast, false))
-				toFirst = -2
-			}
-			onItem(item)
+			compressStep(&item, &lastItem, onItem)
 		}
 	}
 
-	if fromFirst != -2 {
-		onItem(mkMapping(fromFirst, fromLast, true))
+	if lastItem.From.First != -2 {
+		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
 
-	} else if toFirst != -2 {
-		onItem(mkMapping(toFirst, toLast, false))
+	} else if lastItem.To.First != -2 {
+		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
+	}
+}
+
+// CompressFromFile runs in the same way as CompressFromChan except that
+// the data source is a file in this case.
+func CompressFromFile(file *os.File, onItem func(item mapping.Mapping)) {
+	fr := bufio.NewScanner(file)
+	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+
+	for fr.Scan() {
+		item := mapping.NewMappingFromString(fr.Text())
+		compressStep(&item, &lastItem, onItem)
+	}
+
+	if lastItem.From.First != -2 {
+		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
+
+	} else if lastItem.To.First != -2 {
+		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
 	}
 }

@@ -23,7 +23,6 @@ package fixgaps
 import (
 	"bufio"
 	"os"
-	"strings"
 
 	"github.com/czcorpus/ictools/mapping"
 )
@@ -39,31 +38,26 @@ func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mappin
 	lastL1 := -1
 	lastL2 := -1
 	for fr.Scan() {
-		line := fr.Text()
-		items := strings.Split(line, "\t")
-		l1t := strings.Split(items[0], ",")
-		l2t := strings.Split(items[1], ",")
-		r1 := mapping.NewPosRange(l1t)
-		r2 := mapping.NewPosRange(l2t)
+		item := mapping.NewMappingFromString(fr.Text())
 		if !startFromZero && lastL1 == -1 && lastL2 == -1 {
-			lastL1 = r1.First
-			lastL2 = r2.First
+			lastL1 = item.From.First
+			lastL2 = item.From.First
 		}
-		for r1.First > lastL1+1 {
+		for item.From.First > lastL1+1 {
 			lastL1++
 			onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
 		}
-		for r2.First > lastL2+1 {
+		for item.To.First > lastL2+1 {
 			lastL2++
 			onItem(mapping.NewMapping(-1, -1, lastL2, lastL2))
 		}
-		if r1.Last != -1 {
-			lastL1 = r1.Last
+		if item.From.Last != -1 {
+			lastL1 = item.From.Last
 		}
-		if r2.Last != -1 {
-			lastL2 = r2.Last
+		if item.To.Last != -1 {
+			lastL2 = item.To.Last
 		}
-		onItem(mapping.Mapping{r1, r2})
+		onItem(item)
 	}
 }
 
