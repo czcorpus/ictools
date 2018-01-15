@@ -22,6 +22,7 @@ package mapping
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/czcorpus/ictools/common"
 )
@@ -79,6 +80,18 @@ func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
 		PosRange{from1, from2},
 		PosRange{to1, to2},
 	}
+}
+
+// NewMappingFromString creates a new Mapping instance
+// from a two-column numeric source code line used as
+// an intermediate format.
+func NewMappingFromString(src string) Mapping {
+	items := strings.Split(src, "\t")
+	l1t := strings.Split(items[0], ",")
+	l2t := strings.Split(items[1], ",")
+	r1 := NewPosRange(l1t)
+	r2 := NewPosRange(l2t)
+	return Mapping{r1, r2}
 }
 
 // ----------------------------------------------

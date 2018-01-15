@@ -125,6 +125,9 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 	items := make([]mapping.Mapping, 0, initialCap)
 	fromUndefItems := make([]mapping.Mapping, 0, initialCap/10)
 	for i := 0; reader.Scan(); i++ {
+		if i%1000000 == 0 {
+			log.Printf("Read %dm lines", i/1000000)
+		}
 		mp, err := p.processLine(reader.Text(), i)
 		if err == nil {
 			if mp.From.First > -1 {
