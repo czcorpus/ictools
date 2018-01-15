@@ -21,7 +21,13 @@ In case your have `$GOPATH/bin` in your `$PATH` you are ready to go. Otherwise y
 
 ### The "new way"
 
-There are two actions necessary:
+This approach handles whole import of XML data (= *calign* > *fixgaps* > *compress*) in one step. 
+The individual transformations the import is composed of run concurrently to be able to keep up with 
+the classic scripts connected via pipes (where all the processes run concurrently too). Ictools' 
+approach is a little bit more efficient as there is no process overhead, no repeated data serialization 
+and deserialization.
+
+To prepare your data, two actions are necessary:
 
 1. import two or more XML files containing mappings between structures (typically sentences) of two languages (one of them is considered a *pivot*) identified by their string IDs.
 2. create a new mapping between two or more non-pivot languages
@@ -39,7 +45,7 @@ ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 
 ### The "old way"
 
-This is for legacy reasons and it should work in a similar way to the Python scripts  *calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
+This is for legacy (and debugging) reasons and it should work in a similar way to the Python scripts  *calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
 
 ```
 ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs | ictools fixgaps | ictools compressrng > intercorp.pl2cs
