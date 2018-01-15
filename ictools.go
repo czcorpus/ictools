@@ -133,6 +133,8 @@ func main() {
 	}
 	var bufferSize int
 	flag.IntVar(&bufferSize, "buffer-size", bufio.MaxScanTokenSize, "Max line buffer size")
+	var registryPath string
+	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -143,13 +145,17 @@ func main() {
 		t1 := time.Now().UnixNano()
 		switch flag.Arg(0) {
 		case "calign":
-			runCalign(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4), bufferSize)
+			r1Path := filepath.Join(registryPath, flag.Arg(1))
+			r2Path := filepath.Join(registryPath, flag.Arg(2))
+			runCalign(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize)
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
 		case "calign2":
-			runCalign2(flag.Arg(1), flag.Arg(2), flag.Arg(3), flag.Arg(4), bufferSize)
+			r1Path := filepath.Join(registryPath, flag.Arg(1))
+			r2Path := filepath.Join(registryPath, flag.Arg(2))
+			runCalign2(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize)
 		default:
 			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
 		}
