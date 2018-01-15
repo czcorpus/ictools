@@ -178,8 +178,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
-	var bufferSize int
-	flag.IntVar(&bufferSize, "buffer-size", bufio.MaxScanTokenSize, "Max line buffer size")
+	var lineBufferSize int
+	flag.IntVar(&lineBufferSize, "line-buffer", bufio.MaxScanTokenSize, "Max line buffer size")
 	var registryPath string
 	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files")
 	var noCompress bool
@@ -198,11 +198,11 @@ func main() {
 		case "import":
 			r1Path := filepath.Join(registryPath, flag.Arg(1))
 			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runImport(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize, noCompress)
+			runImport(r1Path, r2Path, flag.Arg(3), flag.Arg(4), lineBufferSize, noCompress)
 		case "calign":
 			r1Path := filepath.Join(registryPath, flag.Arg(1))
 			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runCalign(r1Path, r2Path, flag.Arg(3), flag.Arg(4), bufferSize)
+			runCalign(r1Path, r2Path, flag.Arg(3), flag.Arg(4), lineBufferSize)
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
 		case "compressrng":
