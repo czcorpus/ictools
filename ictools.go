@@ -33,6 +33,10 @@ import (
 	"github.com/czcorpus/ictools/transalign"
 )
 
+const (
+	defaultChanBufferSize = 5000
+)
+
 func prepareCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) (*os.File, *calign.Processor) {
 	c1 := attrib.OpenCorpus(registryPath1)
 	attr1 := attrib.OpenAttr(c1, attrName)
@@ -100,16 +104,18 @@ func runTransalign(filePath1 string, filePath2 string) {
 }
 
 // runCalign2 runs both 'calign' and 'fixgaps' functions
+// The function create 1 or 2 (depends on whether
+// noCompress is false/true) new goroutines.
 func runCalign2(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int, noCompress bool) {
 	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
 	ch1 := make(chan []mapping.Mapping, 5)
-	buff1 := make([]mapping.Mapping, 0, 5000)
+	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
 	go func() {
 		processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
 			buff1 = append(buff1, item)
-			if len(buff1) == 5000 {
+			if len(buff1) == defaultChanBufferSize {
 				ch1 <- buff1
-				buff1 = make([]mapping.Mapping, 0, 5000)
+				buff1 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 			}
 		})
 		if len(buff1) > 0 {
@@ -125,19 +131,20 @@ func runCalign2(registryPath1 string, registryPath2 string, attrName string, map
 
 	} else {
 		ch2 := make(chan []mapping.Mapping, 5)
-		buff2 := make([]mapping.Mapping, 0, 5000)
-		fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
-			buff2 = append(buff2, item)
-			if len(buff2) == 5000 {
+		go func() {
+			buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
+			fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
+				buff2 = append(buff2, item)
+				if len(buff2) == defaultChanBufferSize {
+					ch2 <- buff2
+					buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
+				}
+			})
+			if len(buff2) > 0 {
 				ch2 <- buff2
-				buff2 = make([]mapping.Mapping, 0, 5000)
 			}
-		})
-		if len(buff2) > 0 {
-			ch2 <- buff2
-		}
-		close(ch2)
-
+			close(ch2)
+		}()
 		calign.CompressFromChan(ch2, func(item mapping.Mapping) {
 			fmt.Println(item)
 		})
