@@ -27,18 +27,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/czcorpus/ictools/attrib"
-	"github.com/czcorpus/ictools/common"
 	"github.com/czcorpus/ictools/mapping"
-)
-
-var (
-	attrRegexp1 = regexp.MustCompile(".*xtargets=\"([^\"]+?)\".*")
-	attrRegexp2 = regexp.MustCompile(".*xtargets='([^']+?)'.*")
 )
 
 // Processor represents an object used
@@ -89,14 +81,28 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 	return mapping.PosRange{b, e}, nil
 }
 
-// processLine parses a single line of XML input file
-// it parses lines of the form:
+// parseLine acceptslines of the form:
 // <link type='1-1' xtargets='pl:_ACQUIS:jrc21959A1006_01:28:1;cs:_ACQUIS:jrc21959A1006_01:28:1' status='auto'/>
+// other lines are ignored (i.e. an empty string is returned).
+// Devel note: we try to avoid regexp here as it is quite slow compared with
+// Python's or Perl's regexp engines (tested).
+func parseLine(src string) string {
+	i := strings.Index(src, "xtargets='")
+	if i > -1 {
+		j := strings.Index(src[i+10:], "'")
+		if j > -1 {
+			return src[i+10 : i+10+j]
+		}
+	}
+	return ""
+}
+
+// processLine parses a single line of XML input file
 // any other xml element is ignored
 func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, error) {
-	x := attrRegexp2.FindStringSubmatch(line)
-	if len(x) > 0 {
-		aligned := strings.Split(x[1], ";")
+	srch := parseLine(line)
+	if len(srch) > 0 {
+		aligned := strings.Split(srch, ";")
 		if len(aligned) > 2 {
 			return mapping.Mapping{}, fmt.Errorf("Skipping invalid mapping on line %d", lineNum+1)
 		}
@@ -121,38 +127,16 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping)) {
 	reader := bufio.NewScanner(file)
 	reader.Buffer(make([]byte, bufio.MaxScanTokenSize), bufferSize)
-	initialCap := common.FileSize(file.Name()) / 80. // TODO - estimation
-	items := make([]mapping.Mapping, 0, initialCap)
-	fromUndefItems := make([]mapping.Mapping, 0, initialCap/10)
 	for i := 0; reader.Scan(); i++ {
 		if i%1000000 == 0 {
 			log.Printf("Read %dm lines", i/1000000)
 		}
 		mp, err := p.processLine(reader.Text(), i)
 		if err == nil {
-			if mp.From.First > -1 {
-				items = append(items, mp)
-
-			} else {
-				fromUndefItems = append(fromUndefItems, mp)
-			}
+			onItem(mp)
 
 		} else {
 			log.Print(err)
 		}
 	}
-
-	done := make(chan bool, 2)
-
-	go func() {
-		sort.Sort(mapping.SortableMapping(items))
-		done <- true
-	}()
-	go func() {
-		sort.Sort(mapping.SortableMapping(fromUndefItems))
-		done <- true
-	}()
-	<-done
-	<-done
-	mapping.MergeMappings(items, fromUndefItems, onItem)
 }
