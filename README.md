@@ -12,12 +12,34 @@ First, check whether [manatee-open](https://nlp.fi.muni.cz/trac/noske/wiki/Downl
 go get https://github.com/czcorpus/ictools
 ```
 
+### Possible issues
+
+In case you have installed *manatee-open* into a directory where OS does not look when searching for libraries (typically */usr/local/lib*) then both, the compilation (as well as execution) command need some more arguments:
+
+```
+CGO_CPPFLAGS="-I/opt/manatee/2.130.6/include" CGO_LDFLAGS="-lmanatee -L/opt/manatee/2.130.6/lib" go build
+```
+
 :construction_worker: Please note that currently, *ictools* come with required *manatee-open* header files which is convenient but it can be a problem in case *manatee-open* on your system differs from the one the headers were copied from.
 This issue will be solved once a first release is ready.
 
 In case your have `$GOPATH/bin` in your `$PATH` you are ready to go. Otherwise you can copy the compiled binary to a location like `/usr/local/bin` to be able to call it without referring its full path.
 
 ## Using ictools
+
+Note: in case you have installed *manatee-open* to a directory OS does not about when looking for libraries, then you have to tell where to look for *libmanatee*:
+
+```
+LD_LIBRARY_PATH="/opt/manatee/2.130.6/lib" ./ictools
+```
+
+or you can write a simple start script:
+
+```bash
+#!/bin/bash
+export LD_LIBRARY_PATH="/opt/manatee/2.130.6/lib"
+`dirname $0`/ictools
+```
 
 ### The "new way"
 
