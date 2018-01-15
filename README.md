@@ -43,6 +43,19 @@ ictools -registry-path /var/local/corpora/registry import intercorp_v10_en inter
 ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 ```
 
+For the *import* action, you may want to *tweak line buffer size* (by default *bufio.MaxScanTokenSize* = 64 * 1024
+is used which may fail in case of some complex alignments):
+
+```
+ictools -line-buffer 250000 -registry-path /var/local/corpora/registry import ....etc...
+```
+
+In case you do not want a result file to be compressed, use *no-compress* arg:
+
+```
+ictools -no-compress ....etc....
+```
+
 ### The "old way"
 
 This is for legacy (and debugging) reasons and it should work in a similar way to the Python scripts  *calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
