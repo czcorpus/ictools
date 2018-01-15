@@ -23,6 +23,7 @@ package transalign
 import (
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/czcorpus/ictools/mapping"
 )
@@ -133,6 +134,19 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	}
 	log.Print("...Done.")
 	log.Print("Generating output...")
+
+	done := make(chan bool, 2)
+	go func() {
+		sort.Sort(mapping.SortableMapping(mapL2L3))
+		done <- true
+	}()
+	go func() {
+		sort.Sort(mapping.SortableMapping(mapEmptyL3))
+		done <- true
+	}()
+	<-done
+	<-done
+
 	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
