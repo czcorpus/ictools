@@ -22,6 +22,7 @@ package fixgaps
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 
 	"github.com/czcorpus/ictools/mapping"
@@ -37,8 +38,12 @@ func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mappin
 	fr := bufio.NewScanner(file)
 	lastL1 := -1
 	lastL2 := -1
-	for fr.Scan() {
-		item := mapping.NewMappingFromString(fr.Text())
+	for i := 0; fr.Scan(); i++ {
+		item, err := mapping.NewMappingFromString(fr.Text())
+		if err != nil {
+			fmt.Printf("[WARNING] Failed to process line %d: %s", i, err)
+			continue
+		}
 		if !startFromZero && lastL1 == -1 && lastL2 == -1 {
 			lastL1 = item.From.First
 			lastL2 = item.From.First

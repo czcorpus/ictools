@@ -20,6 +20,7 @@ package calign
 
 import (
 	"bufio"
+	"log"
 	"os"
 
 	"github.com/czcorpus/ictools/mapping"
@@ -98,9 +99,14 @@ func CompressFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
 	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
-	for fr.Scan() {
-		item := mapping.NewMappingFromString(fr.Text())
-		compressStep(&item, &lastItem, onItem)
+	for i := 0; fr.Scan(); i++ {
+		item, err := mapping.NewMappingFromString(fr.Text())
+		if err == nil {
+			compressStep(&item, &lastItem, onItem)
+
+		} else {
+			log.Printf("[WARNING] Failed to process line %d: %s", i, err)
+		}
 	}
 
 	if lastItem.From.First != -2 {
