@@ -137,8 +137,14 @@ func (hm *PivotMapping) Load() {
 			continue
 		}
 		l2 := strings.Split(elms[0], ",")
-		pivotPair := mapping.NewPosRange(pivot)
-		l2Pair := mapping.NewPosRange(l2)
+		pivotPair, err1 := mapping.NewPosRange(pivot)
+		if err1 != nil {
+			log.Printf("[WARNING] Failed to parse pivot on line %d: %s", i, err1)
+		}
+		l2Pair, err2 := mapping.NewPosRange(l2)
+		if err2 != nil {
+			log.Printf("[WARNING] Failed to parse other lang on line %d: %s", i, err2)
+		}
 		if i == 0 {
 			hm.minIdx = pivotPair.First
 		}

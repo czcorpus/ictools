@@ -53,8 +53,17 @@ func (pr PosRange) String() string {
 
 // NewPosRange creates a new PosRange from
 // a list of string-encoded integers.
-func NewPosRange(parsedVals []string) PosRange {
-	return PosRange{common.Str2Int(parsedVals[0]), common.Str2Int(parsedVals[len(parsedVals)-1])}
+// An empty string is treated as -1 (i.e. 'undefined')
+func NewPosRange(parsedVals []string) (PosRange, error) {
+	v1 := common.Str2Int(parsedVals[0])
+	v2 := common.Str2Int(parsedVals[len(parsedVals)-1])
+	if (v1 == -1 || v2 == -1) && v1 != v2 {
+		return PosRange{}, fmt.Errorf("Cannot use -1 with a different value: %d, %d", v1, v2)
+	}
+	if v1 > v2 {
+		return PosRange{}, fmt.Errorf("First value must be smaller than the last one. Got: %d, %d", v1, v2)
+	}
+	return PosRange{v1, v2}, nil
 }
 
 // ----------------------------------------------
@@ -85,22 +94,38 @@ func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
 // NewMappingFromString creates a new Mapping instance
 // from a two-column numeric source code line used as
 // an intermediate format.
-func NewMappingFromString(src string) Mapping {
+func NewMappingFromString(src string) (Mapping, error) {
 	items := strings.Split(src, "\t")
+	if len(items) < 2 {
+		return Mapping{}, fmt.Errorf("No TAB separated data found")
+	}
 	l1t := strings.Split(items[0], ",")
 	l2t := strings.Split(items[1], ",")
-	r1 := NewPosRange(l1t)
-	r2 := NewPosRange(l2t)
-	return Mapping{r1, r2}
+	r1, err1 := NewPosRange(l1t)
+	if err1 != nil {
+		return Mapping{}, err1
+	}
+	r2, err2 := NewPosRange(l2t)
+	if err2 != nil {
+		return Mapping{}, err2
+	}
+	return Mapping{r1, r2}, nil
 }
 
 // ----------------------------------------------
 
 // SortableMapping implements sort.Interface
-// for either [a, b] + [a, -1] or [-1, a] items
+// for either [a, b] + [a, -1] (type A)
+// or [-1, b] (type B) items
 // (i.e. you cannot combine the two together
 // as it is undefined how to compare [a, -1]
 // and [-1, b]).
+// Please note that this sorting is not able
+// to process files correctly in case they
+// contain different value mixing than the one
+// described above (i.e. it may finish without
+// an error but the result won't be a properly
+// sorted mapping list)
 type SortableMapping []Mapping
 
 func (sm SortableMapping) Len() int {
@@ -111,15 +136,14 @@ func (sm SortableMapping) Swap(i, j int) {
 	sm[i], sm[j] = sm[j], sm[i]
 }
 
+// Less compares items from either A iterator or B iterator
+// TODO simplify this - it's not necessary to implement it this way
 func (sm SortableMapping) Less(i, j int) bool {
 	if sm[i].From.First > -1 && sm[j].From.First > -1 {
 		return sm[i].From.First < sm[j].From.First
 
-	} else if sm[i].From.First == -1 || sm[j].From.First == -1 {
+	} else if sm[i].From.First == -1 && sm[j].From.First == -1 {
 		return sm[i].To.First < sm[j].To.First
-
-	} else if sm[i].To.First == -1 && sm[j].To.First == -1 {
-		return sm[i].From.First < sm[j].From.First
 	}
 	panic("unknow type combination")
 }
@@ -132,41 +156,36 @@ func (sm SortableMapping) Less(i, j int) bool {
 // has been applied to the actual item which allows deciding whether
 // there are any unapplied items (which is used in the merging algorithm).
 type Iterator struct {
-	mapping     []Mapping
-	currIdx     int
-	cycleClosed bool
+	mapping  []Mapping
+	currIdx  int
+	finished bool
 }
 
 // NewIterator creates a new Iterator instance
 func NewIterator(data []Mapping) Iterator {
 	return Iterator{
-		mapping:     data,
-		currIdx:     -1,
-		cycleClosed: true,
+		mapping:  data,
+		currIdx:  0,
+		finished: false,
 	}
 }
 
 // Apply calls a provided function with the current
 // item as its argument. After the method is called,
-// HasUnappliedItem() returns false until Next() is
-// called.
+// a possible "finished" state is .
 func (m *Iterator) Apply(onItem func(item Mapping)) {
 	onItem(m.mapping[m.currIdx])
-	m.cycleClosed = true
+	if m.currIdx == len(m.mapping)-1 {
+		m.finished = true
+	}
 }
 
-// CurrLessThan compares latest items of two iterators
+// HasPriorityOver compares latest items of two iterators
 // and returns true if the item from the first one is
 // less then (see how LessThan is defined on PosRange)
 // the second one.
-func (m *Iterator) CurrLessThan(m2 *Iterator) bool {
-	return m.mapping[m.currIdx].To.LessThan(m2.mapping[m2.currIdx].To)
-}
-
-// HasUnappliedItem tells whether the last Next()
-// call was followed by Apply().
-func (m *Iterator) HasUnappliedItem() bool {
-	return !m.cycleClosed
+func (m *Iterator) HasPriorityOver(m2 *Iterator) bool {
+	return !m.finished && m.mapping[m.currIdx].To.LessThan(m2.mapping[m2.currIdx].To)
 }
 
 // Next moves an internal index to the next item.
@@ -175,24 +194,16 @@ func (m *Iterator) HasUnappliedItem() bool {
 func (m *Iterator) Next() {
 	if m.currIdx < len(m.mapping)-1 {
 		m.currIdx++
-		m.cycleClosed = false
 	}
 }
 
 // Unfinished tells whether Next() will
 // provide another item.
 func (m *Iterator) Unfinished() bool {
-	return m.currIdx < len(m.mapping)-1
+	return !m.finished
 }
 
 // ----------------------------------------------
-
-func max(v1 int, v2 int) int {
-	if v1 > v2 {
-		return v1
-	}
-	return v2
-}
 
 // MergeMappings merges two sorted mappings, one containing items
 // [a, b], [a, -1] (where a, b > -1) and one
@@ -207,10 +218,8 @@ func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(it
 	iterL2L3 := NewIterator(mainMapping)
 	iterL3 := NewIterator(mapFromEmpty)
 
-	iterL3.Next()
-	iterL2L3.Next()
 	for iterL2L3.Unfinished() || iterL3.Unfinished() {
-		if (iterL3.CurrLessThan(&iterL2L3) && iterL3.Unfinished()) || !iterL2L3.Unfinished() {
+		if iterL3.HasPriorityOver(&iterL2L3) || !iterL2L3.Unfinished() {
 			iterL3.Apply(onItem)
 			iterL3.Next()
 
@@ -218,22 +227,6 @@ func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(it
 			iterL2L3.Apply(onItem)
 			iterL2L3.Next()
 		}
-	}
-	if iterL3.HasUnappliedItem() && iterL2L3.HasUnappliedItem() {
-		if iterL3.CurrLessThan(&iterL2L3) {
-			iterL3.Apply(onItem)
-			iterL2L3.Apply(onItem)
-
-		} else {
-			iterL2L3.Apply(onItem)
-			iterL3.Apply(onItem)
-		}
-
-	} else if iterL3.HasUnappliedItem() {
-		iterL3.Apply(onItem)
-
-	} else if iterL2L3.HasUnappliedItem() {
-		iterL2L3.Apply(onItem)
 	}
 
 	log.Print("...done.")
