@@ -76,7 +76,7 @@ func runFixGaps(filePath string) {
 			panic(fmt.Sprintf("Failed to open file %s", filePath))
 		}
 	}
-	fixgaps.FromFile(file, false, func(item mapping.Mapping) {
+	fixgaps.FromFile(file, true, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 }
@@ -142,7 +142,7 @@ func runImport(registryPath1 string, registryPath2 string, attrName string, mapp
 	}()
 
 	if noCompress {
-		fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
+		fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
 			fmt.Println(item)
 		})
 
@@ -150,7 +150,7 @@ func runImport(registryPath1 string, registryPath2 string, attrName string, mapp
 		ch2 := make(chan []mapping.Mapping, 5)
 		go func() {
 			buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
-			fixgaps.FromChan(ch1, false, func(item mapping.Mapping) {
+			fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
 				buff2 = append(buff2, item)
 				if len(buff2) == defaultChanBufferSize {
 					ch2 <- buff2
