@@ -145,7 +145,7 @@ func (sm SortableMapping) Less(i, j int) bool {
 	} else if sm[i].From.First == -1 && sm[j].From.First == -1 {
 		return sm[i].To.First < sm[j].To.First
 	}
-	panic("unknow type combination")
+	panic(fmt.Sprintf("Unknow mapping type combination: [%s] [%s]", sm[i], sm[j]))
 }
 
 // ----------------------------------------------

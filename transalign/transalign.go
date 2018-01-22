@@ -125,7 +125,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
 			continue
 
-		} else if l2.First != -1 && l3.First == -1 {
+		} else if l2.First == -1 && l3.First != -1 {
 			mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{From: l2, To: l3})
 
 		} else {
