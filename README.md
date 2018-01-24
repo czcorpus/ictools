@@ -1,8 +1,8 @@
 # ictools - a set of tools for generating corpora alignments
 
-This is a faster replacement for "classic" *calign.py*, *compressrng.py*, *fixgaps.py*, *transalign.py*.
-
-:construction: Current status: a working prototype, misc. tested must be written and performed
+This is a faster integrated replacement for "classic" *calign.py*, *compressrng.py*, *fixgaps.py*, 
+*transalign.py* scripts used to prepare corpora alignment numeric data from lists of structural 
+attribute values mapping between languages.
 
 * [How to build ictools](#how_to_build_ictools)
 * [Using ictools](#using_ictools)
@@ -11,30 +11,73 @@ This is a faster replacement for "classic" *calign.py*, *compressrng.py*, *fixga
 <a name="how_to_build_ictools"></a>
 ## How to build ictools
 
-First, check whether [manatee-open](https://nlp.fi.muni.cz/trac/noske/wiki/Downloads) is installed
-on your system (no Python, Ruby, Java etc. APIs are needed - just a native library).
-E.g. by `ldconfig -p | grep manatee`. A working installation of [Go](https://www.golang.org) must be
-also available.
+To build ictools, a working installation of Manatee(-open) must be installed on your system.
+This includes not just *libmanatee.so* shared library but also source header files for both
+Manatee(-open) and Finlib. A working Go language environment is also required.
 
-```
-go get https://github.com/czcorpus/ictools
-```
+Download ictools package:
 
-### Possible issues
-
-In case you have installed *manatee-open* into a directory where OS does not look when searching for libraries
-(typically */usr/local/lib* for installations from a source code) then the *go build*
-command needs some more arguments to tell compiler and linker where to look for C header files and
-compiled *manatee* library:
-
-```
-CGO_CPPFLAGS="-I/opt/manatee/2.130.6/include" CGO_LDFLAGS="-lmanatee -L/opt/manatee/2.130.6/lib" go build
+```bash
+go get -d https://github.com/czcorpus/ictools
 ```
 
-:construction_worker: Please note that currently, *ictools* come with required *manatee-open* header
-files which is convenient but it can be a problem in case *manatee-open* on your system differs from
-the one the headers were copied from.
-This issue will be solved once a first release is ready.
+### build helper script
+
+The *build* script handles all the intricacies regarding miscellaneous command line arguments
+and environment variables required to build the project and link it with *libmanatee.so* properly.
+It is written in Python 2 and requires Manatee Python wrapper libraries (these are created by default
+when building Manatee).
+
+Let's say you have Manatee-open 2.150 installed on your system. Then just enter:
+
+```bash
+./build 2.150
+```
+
+The script looks for *libmanatee.so* in typical locations (/usr/lib and /usr/local/lib) and
+downloads sources for *Manatee-open* and matching *Finlib* version.
+
+In case your Manatee installation resides in a custom directory, you must specify it yourself:
+
+```
+./build 2.150 --manatee-lib /opt/manatee-2.150/lib
+```
+
+In both cases, the *build* script assumes that the version of the specified (or automatically found)
+Manatee library and the version entered as the first argument (here 2.150) match together.
+
+Script finishes in one of two possible result states:
+
+* Two created files: *ictools* (a bash script), *ictools.bin* (a binary executable) in case *LD_LIBRARY_PATH* must be
+  set because of a non-standard location of *libmanatee.so*. You can just copy these files to */usr/local/bin*
+  and refer the program as *ictools*.
+* One file: *ictools* (a binary executable) in case of standard system installation of *libmanatee.so* (i.e. the
+  operating system is able to locate *libmanatee.so* by itself).
+
+### manual variant
+
+In many cases, simple `go build` won't work because of missing header files and/or non-standard 
+*libmanatee.so* location. In such case you have to specify all the locations by yourself when
+building the project:
+
+```bash
+CGO_CPPFLAGS="-I/path/to/manatee/src -I/path/to/finlib/src" CGO_LDFLAGS="-lmanatee -L/path/to/manatee/lib/dir" go build
+```
+
+In case you have installed *manatee-open* to a non-standard directory, then you have to tell the OS where to look 
+for *libmanatee*:
+
+```
+LD_LIBRARY_PATH="/path/to/libmanatee.so/dir" ./ictools
+```
+
+or you can write a simple start script:
+
+```bash
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="/path/to/libmanatee.so/dir"
+`dirname $0`/ictools "${@:1}"
+```
 
 In case your have `$GOPATH/bin` in your `$PATH` you are ready to go. Otherwise you can copy the
 compiled binary to a location like `/usr/local/bin` to be able to call it without referring its full
@@ -43,20 +86,6 @@ path.
 <a name="using_ictools"></a>
 ## Using ictools
 
-Note: in case you have installed *manatee-open* to a directory OS does not about when looking for
-libraries, then you have to tell where to look for *libmanatee*:
-
-```
-LD_LIBRARY_PATH="/opt/manatee/2.130.6/lib" ./ictools
-```
-
-or you can write a simple start script:
-
-```bash
-#!/bin/bash
-export LD_LIBRARY_PATH="/opt/manatee/2.130.6/lib"
-`dirname $0`/ictools "${@:1}"
-```
 
 ### The default usage style
 
@@ -64,13 +93,13 @@ This usage style is the recommended one as it handles whole import of XML data
 (= *calign* -> *fixgaps* -> *compress*) in one step. The individual transformations the import
 is composed of run concurrently to be able to keep up with the classic scripts connected via
 pipes (where all the processes run concurrently too). Ictools' approach is a little bit more
-efficient as there is no process overhead, no repeated data serialization and deserialization.
+efficient as there is no process overhead, no repeated data serialization/deserialization.
 
 To prepare alignment data, two actions are necessary:
 
 1. importing of two or more XML files containing mappings between structures (typically sentences) of
    two languages (one of them is considered a *pivot*) identified by their string IDs.
-2. create a new mapping between two or more non-pivot languages
+1. create a new mapping between two or more non-pivot languages
 
 Please note that the parser does not care about XML validity - it just looks for tags with the
 following form (actually, only *xtargets* attribute is significant):
@@ -79,11 +108,10 @@ following form (actually, only *xtargets* attribute is significant):
 <link type='0-3' xtargets=';cs:Adams-Holisticka_det_k:0:7:1 cs:Adams-Holisticka_det_k:0:7:2 cs:Adams-Holisticka_det_k:0:7:3' status='man'/>
 ```
 
-
 Let's say we have two files with mappings between Polish and Czech (*intercorp_pl2cs*) and between
 English and Czech (*intercorp.en2cs*) where Czech is a pivot.
 
-```
+```bash
 ictools -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs > intercorp.pl2cs
 
 ictools -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs > intercorp.en2cs
@@ -94,13 +122,13 @@ ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 For the *import* action, you may want to *tweak line buffer size* (by default *bufio.MaxScanTokenSize* = 64 * 1024
 is used which may fail in case of some complex alignments):
 
-```
+```bash
 ictools -line-buffer 250000 -registry-path /var/local/corpora/registry import ....etc...
 ```
 
 In case you do not want a result file to be compressed, use *no-compress* arg:
 
-```
+```bash
 ictools -no-compress ....etc....
 ```
 
@@ -109,7 +137,7 @@ ictools -no-compress ....etc....
 This is for legacy (and debugging) reasons and it should work in a similar way to the Python scripts
 *calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
 
-```
+```bash
 ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs | ictools fixgaps | ictools compressrng > intercorp.pl2cs
 
 ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs | ictools fixgaps | ictools compressrng > intercorp.en2cs
@@ -121,13 +149,14 @@ ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 ## Benchmark
 
 Used data files:
-  * intercorp_pl2cs (size 1.4GB)
-  * intercorp_pl2en (size 1.5GB)
+
+* intercorp_pl2cs (size 1.4GB)
+* intercorp_pl2en (size 1.5GB)
 
 Used hardware:
-  * CPU: Intel Xeon E5-2640 v3 @ 2.60GHz
-  * 64GB RAM
 
+* CPU: Intel Xeon E5-2640 v3 @ 2.60GHz
+* 64GB RAM
 
 | Used program  | calign+fixgaps+compress [sec] | transalign [sec] | total [sec]  |
 ----------------|------------------------------:|-----------------:|-------------:|
