@@ -4,7 +4,11 @@ This is a faster integrated replacement for "classic" *calign.py*, *compressrng.
 *transalign.py* scripts used to prepare corpora alignment numeric data from lists of structural
 attribute values mapping between languages.
 
+## Contents
+
 * [How to build ictools](#how_to_build_ictools)
+  * [build helper script](#how_to_build_ictools_helper_script)
+  * [manual variant](#how_to_build_ictools_manual_variant)
 * [Using ictools](#using_ictools)
 * [Benchmark](#benchmark)
 
@@ -21,6 +25,7 @@ Download ictools package:
 go get -d https://github.com/czcorpus/ictools
 ```
 
+<a name="how_to_build_ictools_helper_script"></a>
 ### build helper script
 
 The *build* script handles all the intricacies regarding miscellaneous command line arguments
@@ -54,6 +59,7 @@ Script finishes in one of two possible result states:
 * One file: *ictools* (a binary executable) in case of standard system installation of *libmanatee.so* (i.e. the
   operating system is able to locate *libmanatee.so* by itself).
 
+<a name="how_to_build_ictools_manual_variant"></a>
 ### manual variant
 
 In many cases, simple `go build` won't work because of missing header files and/or non-standard
