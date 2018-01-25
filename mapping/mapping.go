@@ -152,9 +152,7 @@ func (sm SortableMapping) Less(i, j int) bool {
 
 // Iterator is used when merging two sorted mappings together.
 // It provides a way how to apply a function to each item rather
-// than exposing the item. It also remembers whether the function
-// has been applied to the actual item which allows deciding whether
-// there are any unapplied items (which is used in the merging algorithm).
+// than exposing the item.
 type Iterator struct {
 	mapping  []Mapping
 	currIdx  int
