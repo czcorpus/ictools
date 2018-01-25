@@ -1,7 +1,7 @@
 # ictools - a set of tools for generating corpora alignments
 
-This is a faster integrated replacement for "classic" *calign.py*, *compressrng.py*, *fixgaps.py*, 
-*transalign.py* scripts used to prepare corpora alignment numeric data from lists of structural 
+This is a faster integrated replacement for "classic" *calign.py*, *compressrng.py*, *fixgaps.py*,
+*transalign.py* scripts used to prepare corpora alignment numeric data from lists of structural
 attribute values mapping between languages.
 
 * [How to build ictools](#how_to_build_ictools)
@@ -56,7 +56,7 @@ Script finishes in one of two possible result states:
 
 ### manual variant
 
-In many cases, simple `go build` won't work because of missing header files and/or non-standard 
+In many cases, simple `go build` won't work because of missing header files and/or non-standard
 *libmanatee.so* location. In such case you have to specify all the locations by yourself when
 building the project:
 
@@ -64,7 +64,7 @@ building the project:
 CGO_CPPFLAGS="-I/path/to/manatee/src -I/path/to/finlib/src" CGO_LDFLAGS="-lmanatee -L/path/to/manatee/lib/dir" go build
 ```
 
-In case you have installed *manatee-open* to a non-standard directory, then you have to tell the OS where to look 
+In case you have installed *manatee-open* to a non-standard directory, then you have to tell the OS where to look
 for *libmanatee*:
 
 ```
@@ -155,13 +155,19 @@ Used data files:
 
 Used hardware:
 
-* CPU: Intel Xeon E5-2640 v3 @ 2.60GHz
-* 64GB RAM
+* A (a server)
+  * CPU: Intel Xeon E5-2640 v3 @ 2.60GHz
+  * 64GB RAM
+* B (a common Dell desktop)
+  * CPU: Intel Core) i5-2400 @ 3.10GHz
+  * 8GB RAM
 
-| Used program  | calign+fixgaps+compress [sec] | transalign [sec] | total [sec]  |
-----------------|------------------------------:|-----------------:|-------------:|
-classic scripts |  255                          | 191              | 446          |
-ictools         |  180                          | 57               | 237          |
+| Setup | Used program    | calign+fixgaps+compress [sec] | transalign [sec] | total [sec]  |
+|-------|-----------------|------------------------------:|-----------------:|-------------:|
+| A     | classic scripts |  255                          | 191              | 446          |
+| A     | ictools         |  **180**                      | **57**           | **237**      |
+| B     | classic scripts |  312                          | DNF (RAM)        | DNF          |
+| B     | ictools         |  **175**                      | **63**           | **238**      |
 
 In terms of memory usage, there were no thorough measurements performed but according to the *top*
 utility the *transalign* function in *ictools* consumes less than half of the memory compared
