@@ -36,15 +36,25 @@ import (
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
-	attr1 attrib.GoPosAttr
-	attr2 attrib.GoPosAttr
+	attr1     attrib.GoPosAttr
+	attr2     attrib.GoPosAttr
+	valPrefix string
+	valSuffix string
 }
 
 // NewProcessor creates a new instance of Processor
-func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) *Processor {
+func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, quoteStyle int) *Processor {
+	valPrefix := "xtargets='"
+	valSuffix := "'"
+	if quoteStyle == 2 {
+		valPrefix = "xtargets=\""
+		valSuffix = "\""
+	}
 	return &Processor{
-		attr1: attr1,
-		attr2: attr2,
+		attr1:     attr1,
+		attr2:     attr2,
+		valPrefix: valPrefix,
+		valSuffix: valSuffix,
 	}
 }
 
@@ -81,17 +91,18 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 	return mapping.PosRange{b, e}, nil
 }
 
-// parseLine acceptslines of the form:
+// parseLine accepts lines of the form:
 // <link type='1-1' xtargets='pl:_ACQUIS:jrc21959A1006_01:28:1;cs:_ACQUIS:jrc21959A1006_01:28:1' status='auto'/>
 // other lines are ignored (i.e. an empty string is returned).
 // Devel note: we try to avoid regexp here as it is quite slow compared with
 // Python's or Perl's regexp engines (tested).
-func parseLine(src string) string {
-	i := strings.Index(src, "xtargets='")
-	if i > -1 {
-		j := strings.Index(src[i+10:], "'")
-		if j > -1 {
-			return src[i+10 : i+10+j]
+
+func (p *Processor) parseLine(src string) string {
+	startIdx := strings.Index(src, p.valPrefix)
+	if startIdx > -1 {
+		endIdx := strings.Index(src[startIdx+10:], p.valSuffix)
+		if endIdx > -1 {
+			return src[startIdx+10 : startIdx+10+endIdx]
 		}
 	}
 	return ""
@@ -100,7 +111,7 @@ func parseLine(src string) string {
 // processLine parses a single line of XML input file
 // any other xml element is ignored
 func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, error) {
-	srch := parseLine(line)
+	srch := p.parseLine(line)
 	if len(srch) > 0 {
 		aligned := strings.Split(srch, ";")
 		if len(aligned) > 2 {
