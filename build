@@ -69,7 +69,7 @@ def download_manatee_src(version):
     if ans == 0:
         return '/tmp/manatee-open-{0}'.format(version)
     else:
-        raise Exception('Failed to download and extract manatee. Please do this manually and run the script with --finlib-src ...')
+        raise Exception('Failed to download and extract manatee. Please do this manually and run the script with --manatee-src ...')
     return ans
 
 
