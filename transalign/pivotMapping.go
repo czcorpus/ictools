@@ -21,6 +21,7 @@ package transalign
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -124,6 +125,26 @@ func (hm *PivotMapping) deindex(i int) int {
 	return i + hm.minIdx
 }
 
+func (hm *PivotMapping) setMapping(part int, pivotPair *mapping.PosRange) {
+	if hm.index(part) < len(hm.pivot) {
+		hm.pivot[hm.index(part)] = pivotPair
+
+	} else {
+		panic(fmt.Sprintf("Failed to index PosRange within pivot (pivot len: %d, idx: %d)",
+			len(hm.pivot), hm.index(part)))
+	}
+}
+
+func (hm *PivotMapping) slicePivot(rightLimit int) {
+	if hm.index(rightLimit) <= cap(hm.pivot) {
+		hm.pivot = hm.pivot[:hm.index(rightLimit)]
+
+	} else {
+		panic(fmt.Sprintf("Failed to slice pivot (pivot capacity: %d, idx: %d)",
+			cap(hm.pivot), hm.index(rightLimit)))
+	}
+}
+
 // Load loads the respective data from a predefined file.
 func (hm *PivotMapping) Load() {
 	var part int
@@ -153,10 +174,10 @@ func (hm *PivotMapping) Load() {
 			if hm.index(part) >= len(hm.pivot) {
 				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, hm.index(part)-len(hm.pivot)+1)...)
 			}
-			hm.pivot[hm.index(part)] = &pivotPair
+			hm.setMapping(part, &pivotPair)
 		}
 		i++
 	}
-	hm.pivot = hm.pivot[:hm.index(part+1)]
+	hm.slicePivot(part + 1)
 	log.Printf("...done.")
 }

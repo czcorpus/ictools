@@ -37,29 +37,38 @@ const (
 	defaultChanBufferSize = 5000
 )
 
-func prepareCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string) (*os.File, *calign.Processor) {
-	c1 := attrib.OpenCorpus(registryPath1)
-	attr1 := attrib.OpenAttr(c1, attrName)
-	c2 := attrib.OpenCorpus(registryPath2)
-	attr2 := attrib.OpenAttr(c2, attrName)
+type runCalignArgs struct {
+	registryPath1   string
+	registryPath2   string
+	attrName        string
+	mappingFilePath string
+	bufferSize      int
+	quoteStyle      int
+}
+
+func prepareCalign(args runCalignArgs) (*os.File, *calign.Processor) {
+	c1 := attrib.OpenCorpus(args.registryPath1)
+	attr1 := attrib.OpenAttr(c1, args.attrName)
+	c2 := attrib.OpenCorpus(args.registryPath2)
+	attr2 := attrib.OpenAttr(c2, args.attrName)
 
 	var file *os.File
 	var err error
-	if mappingFilePath == "" {
+	if args.mappingFilePath == "" {
 		file = os.Stdin
 
 	} else {
-		file, err = os.Open(mappingFilePath)
+		file, err = os.Open(args.mappingFilePath)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to open file %s", mappingFilePath))
+			panic(fmt.Sprintf("Failed to open file %s", args.mappingFilePath))
 		}
 	}
-	return file, calign.NewProcessor(attr1, attr2)
+	return file, calign.NewProcessor(attr1, attr2, args.quoteStyle)
 }
 
-func runCalign(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int) {
-	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
-	processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
+func runCalign(args runCalignArgs) {
+	file, processor := prepareCalign(args)
+	processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 }
@@ -123,12 +132,12 @@ func runTransalign(filePath1 string, filePath2 string) {
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
 // The function creates 1 or 2 (depends on whether
 // noCompress is false/true) new goroutines.
-func runImport(registryPath1 string, registryPath2 string, attrName string, mappingFilePath string, bufferSize int, noCompress bool) {
-	file, processor := prepareCalign(registryPath1, registryPath2, attrName, mappingFilePath)
+func runImport(args runCalignArgs, noCompress bool) {
+	file, processor := prepareCalign(args)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
 	go func() {
-		processor.ProcessFile(file, bufferSize, func(item mapping.Mapping) {
+		processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
 			buff1 = append(buff1, item)
 			if len(buff1) == defaultChanBufferSize {
 				ch1 <- buff1
@@ -184,6 +193,9 @@ func main() {
 	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files")
 	var noCompress bool
 	flag.BoolVar(&noCompress, "no-compress", false, "Do not compress intermediate data (needs more ram/disk)")
+	var quoteStyle int
+	flag.IntVar(&quoteStyle, "quote-style", 1, "Input XML quote style: 1 - single, 2 - double")
+
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -196,13 +208,23 @@ func main() {
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
 		case "import":
-			r1Path := filepath.Join(registryPath, flag.Arg(1))
-			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runImport(r1Path, r2Path, flag.Arg(3), flag.Arg(4), lineBufferSize, noCompress)
+			runImport(runCalignArgs{
+				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
+				registryPath2:   filepath.Join(registryPath, flag.Arg(2)),
+				attrName:        flag.Arg(3),
+				mappingFilePath: flag.Arg(4),
+				bufferSize:      lineBufferSize,
+				quoteStyle:      quoteStyle,
+			}, noCompress)
 		case "calign":
-			r1Path := filepath.Join(registryPath, flag.Arg(1))
-			r2Path := filepath.Join(registryPath, flag.Arg(2))
-			runCalign(r1Path, r2Path, flag.Arg(3), flag.Arg(4), lineBufferSize)
+			runCalign(runCalignArgs{
+				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
+				registryPath2:   filepath.Join(registryPath, flag.Arg(2)),
+				attrName:        flag.Arg(3),
+				mappingFilePath: flag.Arg(4),
+				bufferSize:      lineBufferSize,
+				quoteStyle:      quoteStyle,
+			})
 		case "fixgaps":
 			runFixGaps(flag.Arg(1))
 		case "compressrng":
