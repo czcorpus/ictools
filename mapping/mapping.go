@@ -161,10 +161,14 @@ type Iterator struct {
 
 // NewIterator creates a new Iterator instance
 func NewIterator(data []Mapping) Iterator {
+	finished := false
+	if len(data) == 0 {
+		finished = true
+	}
 	return Iterator{
 		mapping:  data,
 		currIdx:  0,
-		finished: false,
+		finished: finished,
 	}
 }
 
