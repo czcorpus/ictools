@@ -37,7 +37,7 @@ const (
 	defaultChanBufferSize = 5000
 )
 
-type runCalignArgs struct {
+type calignArgs struct {
 	registryPath1   string
 	registryPath2   string
 	attrName        string
@@ -46,7 +46,7 @@ type runCalignArgs struct {
 	quoteStyle      int
 }
 
-func prepareCalign(args runCalignArgs) (*os.File, *calign.Processor) {
+func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 	c1 := attrib.OpenCorpus(args.registryPath1)
 	attr1 := attrib.OpenAttr(c1, args.attrName)
 	c2 := attrib.OpenCorpus(args.registryPath2)
@@ -66,7 +66,7 @@ func prepareCalign(args runCalignArgs) (*os.File, *calign.Processor) {
 	return file, calign.NewProcessor(attr1, attr2, args.quoteStyle)
 }
 
-func runCalign(args runCalignArgs) {
+func runCalign(args calignArgs) {
 	file, processor := prepareCalign(args)
 	processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
 		fmt.Println(item)
@@ -132,7 +132,7 @@ func runTransalign(filePath1 string, filePath2 string) {
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
 // The function creates 1 or 2 (depends on whether
 // noCompress is false/true) new goroutines.
-func runImport(args runCalignArgs, noCompress bool) {
+func runImport(args calignArgs, noCompress bool) {
 	file, processor := prepareCalign(args)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
@@ -208,7 +208,7 @@ func main() {
 		case "transalign":
 			runTransalign(flag.Arg(1), flag.Arg(2))
 		case "import":
-			runImport(runCalignArgs{
+			runImport(calignArgs{
 				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
 				registryPath2:   filepath.Join(registryPath, flag.Arg(2)),
 				attrName:        flag.Arg(3),
@@ -217,7 +217,7 @@ func main() {
 				quoteStyle:      quoteStyle,
 			}, noCompress)
 		case "calign":
-			runCalign(runCalignArgs{
+			runCalign(calignArgs{
 				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
 				registryPath2:   filepath.Join(registryPath, flag.Arg(2)),
 				attrName:        flag.Arg(3),
