@@ -66,6 +66,8 @@ type PivotMapping struct {
 	itemsEstim int
 
 	minIdx int
+
+	maxPartVal int
 }
 
 // NewPivotMapping creates a new instance of PivotMapping
@@ -136,12 +138,12 @@ func (hm *PivotMapping) setMapping(part int, pivotPair *mapping.PosRange) {
 }
 
 func (hm *PivotMapping) slicePivot(rightLimit int) {
-	if hm.index(rightLimit) <= cap(hm.pivot) {
+	if hm.index(rightLimit) <= len(hm.pivot) {
 		hm.pivot = hm.pivot[:hm.index(rightLimit)]
 
 	} else {
-		panic(fmt.Sprintf("Failed to slice pivot (pivot capacity: %d, idx: %d)",
-			cap(hm.pivot), hm.index(rightLimit)))
+		panic(fmt.Sprintf("Failed to slice pivot (pivot cap: %d, len: %d, idx: %d)",
+			cap(hm.pivot), len(hm.pivot), hm.index(rightLimit)))
 	}
 }
 
@@ -176,8 +178,12 @@ func (hm *PivotMapping) Load() {
 			}
 			hm.setMapping(part, &pivotPair)
 		}
+		if part > hm.maxPartVal {
+			hm.maxPartVal = part
+		}
 		i++
 	}
-	hm.slicePivot(part + 1)
-	log.Printf("...done.")
+	// here hm.maxPartVal is already [max index]+1 (thank to the 'part' in the for cycle above)
+	hm.slicePivot(hm.maxPartVal)
+	log.Printf("...done (%d items).", len(hm.pivot))
 }
