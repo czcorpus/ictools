@@ -21,10 +21,11 @@ extern "C" {
 
 typedef void* PosAttrV;
 typedef void* CorpusV;
+typedef void* StructV;
 
+long get_struct_size(CorpusV corpus, const char* structName);
 PosAttrV get_attr(CorpusV corp, const char* attrName);
 long attr_str2id(PosAttrV attr, const char* str);
-long attr_size(PosAttrV attr);
 CorpusV open_corpus(const char* corpusPath);
 void close_corpus(CorpusV corpus);
 void close_attr(PosAttrV attr);

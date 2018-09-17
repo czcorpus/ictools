@@ -46,7 +46,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new instance of Processor
-func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, quoteStyle int) *Processor {
+func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, pivotSize int, quoteStyle int) *Processor {
 	valPrefix := "xtargets='"
 	valSuffix := "'"
 	if quoteStyle == 2 {
@@ -61,7 +61,7 @@ func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, quoteStyle int
 		valSuffix:       valSuffix,
 		lastPos:         0,
 		lastPivotPos:    0,
-		pivotStructSize: attr2.Size(),
+		pivotStructSize: pivotSize,
 	}
 }
 
