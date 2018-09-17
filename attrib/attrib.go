@@ -32,6 +32,10 @@ func (gpa GoPosAttr) Str2ID(value string) int {
 	return int(C.attr_str2id(gpa.attr, C.CString(value)))
 }
 
+func (gpa GoPosAttr) Size() int {
+	return int(C.attr_size(gpa.attr))
+}
+
 type GoCorpus struct {
 	corp C.CorpusV
 }

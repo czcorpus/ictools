@@ -36,10 +36,13 @@ import (
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
-	attr1     attrib.GoPosAttr
-	attr2     attrib.GoPosAttr
-	valPrefix string
-	valSuffix string
+	attr1           attrib.GoPosAttr
+	attr2           attrib.GoPosAttr
+	valPrefix       string
+	valSuffix       string
+	lastPos         int
+	lastPivotPos    int
+	pivotStructSize int
 }
 
 // NewProcessor creates a new instance of Processor
@@ -50,11 +53,15 @@ func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, quoteStyle int
 		valPrefix = "xtargets=\""
 		valSuffix = "\""
 	}
+
 	return &Processor{
-		attr1:     attr1,
-		attr2:     attr2,
-		valPrefix: valPrefix,
-		valSuffix: valSuffix,
+		attr1:           attr1,
+		attr2:           attr2,
+		valPrefix:       valPrefix,
+		valSuffix:       valSuffix,
+		lastPos:         0,
+		lastPivotPos:    0,
+		pivotStructSize: attr2.Size(),
 	}
 }
 
@@ -125,6 +132,8 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 		if err2 != nil {
 			return mapping.Mapping{}, err2
 		}
+		p.lastPos = l1.Last
+		p.lastPivotPos = l2.Last
 		return mapping.Mapping{l1, l2}, nil
 	}
 	return mapping.Mapping{}, fmt.Errorf("Ignoring line: %d", lineNum)
@@ -149,5 +158,14 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 		} else {
 			log.Print(err)
 		}
+	}
+	if p.lastPos < p.pivotStructSize-1 {
+		onItem(mapping.Mapping{
+			From: mapping.NewEmptyPosRange(),
+			To: mapping.PosRange{
+				First: p.lastPivotPos + 1,
+				Last:  p.pivotStructSize - 1,
+			},
+		})
 	}
 }

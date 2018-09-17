@@ -24,6 +24,7 @@ typedef void* CorpusV;
 
 PosAttrV get_attr(CorpusV corp, const char* attrName);
 long attr_str2id(PosAttrV attr, const char* str);
+long attr_size(PosAttrV attr);
 CorpusV open_corpus(const char* corpusPath);
 void close_corpus(CorpusV corpus);
 void close_attr(PosAttrV attr);
