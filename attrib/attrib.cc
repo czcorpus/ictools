@@ -33,8 +33,10 @@ long attr_str2id(PosAttrV attr, const char* str) {
     return ((PosAttr *)attr)->str2id(str);
 }
 
-long attr_size(PosAttrV attr) {
-    return ((PosAttr *)attr)->size();
+long get_struct_size(CorpusV corpus, const char* structName) {
+    string tmp(structName);
+    StructV strct = ((Corpus*)corpus)->get_struct(tmp);
+    return ((Structure *)strct)->size();
 }
 
 CorpusV open_corpus(const char* corpusPath) {

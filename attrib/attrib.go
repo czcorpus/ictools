@@ -24,20 +24,22 @@ package attrib
 // #include "attrib.h"
 import "C"
 
+type GoCorpus struct {
+	corp C.CorpusV
+}
+
+func GetStructSize(corpus GoCorpus, name string) int {
+	return int(C.get_struct_size(corpus.corp, C.CString(name)))
+}
+
+// ---
+
 type GoPosAttr struct {
 	attr C.PosAttrV
 }
 
 func (gpa GoPosAttr) Str2ID(value string) int {
 	return int(C.attr_str2id(gpa.attr, C.CString(value)))
-}
-
-func (gpa GoPosAttr) Size() int {
-	return int(C.attr_size(gpa.attr))
-}
-
-type GoCorpus struct {
-	corp C.CorpusV
 }
 
 func OpenCorpus(path string) GoCorpus {

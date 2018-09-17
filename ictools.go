@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/ictools/attrib"
@@ -63,7 +64,8 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 			panic(fmt.Sprintf("Failed to open file %s", args.mappingFilePath))
 		}
 	}
-	return file, calign.NewProcessor(attr1, attr2, args.quoteStyle)
+	pivotStructSize := attrib.GetStructSize(c2, strings.Split(args.attrName, ".")[0])
+	return file, calign.NewProcessor(attr1, attr2, pivotStructSize, args.quoteStyle)
 }
 
 func runCalign(args calignArgs) {
