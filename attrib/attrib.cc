@@ -33,6 +33,10 @@ long attr_str2id(PosAttrV attr, const char* str) {
     return ((PosAttr *)attr)->str2id(str);
 }
 
+long attr_size(PosAttrV attr) {
+    return ((PosAttr *)attr)->size();
+}
+
 CorpusV open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
     return new Corpus(tmp);
