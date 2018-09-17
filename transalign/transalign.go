@@ -147,7 +147,57 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	<-done
 	<-done
 
-	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping) {
+	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping, pos *mapping.ProcPosition) {
+		if pos.Left == 0 && item.From.First > 0 {
+			fmt.Println(mapping.Mapping{
+				From: mapping.PosRange{
+					First: 0,
+					Last:  item.From.First - 1,
+				},
+				To: mapping.PosRange{
+					First: -1,
+					Last:  -1,
+				},
+			})
+
+		} else if pos.Right == 0 && item.To.First > 0 {
+			fmt.Println(mapping.Mapping{
+				From: mapping.PosRange{
+					First: -1,
+					Last:  -1,
+				},
+				To: mapping.PosRange{
+					First: 0,
+					Last:  item.To.First - 1,
+				},
+			})
+
+		} else {
+			if item.From.First > pos.Left+1 {
+				fmt.Println(mapping.Mapping{
+					From: mapping.PosRange{
+						First: pos.Left + 1,
+						Last:  item.From.First - 1,
+					},
+					To: mapping.PosRange{
+						First: -1,
+						Last:  -1,
+					},
+				})
+			}
+			if item.To.First > pos.Right+1 {
+				fmt.Println(mapping.Mapping{
+					From: mapping.PosRange{
+						First: -1,
+						Last:  -1,
+					},
+					To: mapping.PosRange{
+						First: pos.Right + 1,
+						Last:  item.To.First - 1,
+					},
+				})
+			}
+		}
 		fmt.Println(item)
 	})
 }

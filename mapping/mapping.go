@@ -150,63 +150,6 @@ func (sm SortableMapping) Less(i, j int) bool {
 
 // ----------------------------------------------
 
-// Iterator is used when merging two sorted mappings together.
-// It provides a way how to apply a function to each item rather
-// than exposing the item.
-type Iterator struct {
-	mapping  []Mapping
-	currIdx  int
-	finished bool
-}
-
-// NewIterator creates a new Iterator instance
-func NewIterator(data []Mapping) Iterator {
-	finished := false
-	if len(data) == 0 {
-		finished = true
-	}
-	return Iterator{
-		mapping:  data,
-		currIdx:  0,
-		finished: finished,
-	}
-}
-
-// Apply calls a provided function with the current
-// item as its argument. After the method is called,
-// a possible "finished" state is .
-func (m *Iterator) Apply(onItem func(item Mapping)) {
-	onItem(m.mapping[m.currIdx])
-	if m.currIdx == len(m.mapping)-1 {
-		m.finished = true
-	}
-}
-
-// HasPriorityOver compares latest items of two iterators
-// and returns true if the item from the first one is
-// less then (see how LessThan is defined on PosRange)
-// the second one.
-func (m *Iterator) HasPriorityOver(m2 *Iterator) bool {
-	return !m.finished && m.mapping[m.currIdx].To.LessThan(m2.mapping[m2.currIdx].To)
-}
-
-// Next moves an internal index to the next item.
-// In case the index reached the end, nothing is
-// done.
-func (m *Iterator) Next() {
-	if m.currIdx < len(m.mapping)-1 {
-		m.currIdx++
-	}
-}
-
-// Unfinished tells whether Next() will
-// provide another item.
-func (m *Iterator) Unfinished() bool {
-	return !m.finished
-}
-
-// ----------------------------------------------
-
 // MergeMappings merges two sorted mappings, one containing items
 // [a, b], [a, -1] (where a, b > -1) and one
 // containing items [-1, a] (where a > -1) into a single
@@ -216,9 +159,10 @@ func (m *Iterator) Unfinished() bool {
 // The function does not create a new slice for the merged
 // items. It's up to a function user to provide a function
 // specifying what to do with each item.
-func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping)) {
-	iterL2L3 := NewIterator(mainMapping)
-	iterL3 := NewIterator(mapFromEmpty)
+func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping, pos *ProcPosition)) {
+	procPos := &ProcPosition{Left: 0, Right: 0}
+	iterL2L3 := NewIterator(mainMapping, procPos)
+	iterL3 := NewIterator(mapFromEmpty, procPos)
 
 	for iterL2L3.Unfinished() || iterL3.Unfinished() {
 		if iterL3.HasPriorityOver(&iterL2L3) || !iterL2L3.Unfinished() {
