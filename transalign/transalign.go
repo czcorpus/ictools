@@ -154,18 +154,12 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 					First: 0,
 					Last:  item.From.First - 1,
 				},
-				To: mapping.PosRange{
-					First: -1,
-					Last:  -1,
-				},
+				To: mapping.NewEmptyPosRange(),
 			})
 
 		} else if pos.Right == 0 && item.To.First > 0 {
 			fmt.Println(mapping.Mapping{
-				From: mapping.PosRange{
-					First: -1,
-					Last:  -1,
-				},
+				From: mapping.NewEmptyPosRange(),
 				To: mapping.PosRange{
 					First: 0,
 					Last:  item.To.First - 1,
@@ -179,18 +173,12 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 						First: pos.Left + 1,
 						Last:  item.From.First - 1,
 					},
-					To: mapping.PosRange{
-						First: -1,
-						Last:  -1,
-					},
+					To: mapping.NewEmptyPosRange(),
 				})
 			}
 			if item.To.First > pos.Right+1 {
 				fmt.Println(mapping.Mapping{
-					From: mapping.PosRange{
-						First: -1,
-						Last:  -1,
-					},
+					From: mapping.NewEmptyPosRange(),
 					To: mapping.PosRange{
 						First: pos.Right + 1,
 						Last:  item.To.First - 1,

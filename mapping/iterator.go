@@ -17,6 +17,12 @@
 
 package mapping
 
+// ProcPosition stores information about last position
+// in both language columns. For columns of format
+// L1,L2[tab]R1,R2, L2, R2 is always stored once the
+// line is processed. This information must be shared
+// between all used iterators as each contains only
+// a partial information about whole data.
 type ProcPosition struct {
 	Left  int
 	Right int
@@ -25,7 +31,6 @@ type ProcPosition struct {
 // Iterator is used when merging two sorted mappings together.
 // It provides a way how to apply a function to each item rather
 // than exposing the item.
-
 type Iterator struct {
 	mapping  []Mapping
 	currIdx  int
