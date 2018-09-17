@@ -66,6 +66,11 @@ func NewPosRange(parsedVals []string) (PosRange, error) {
 	return PosRange{v1, v2}, nil
 }
 
+// NewEmptyPosRange creates a range "-1,-1"
+func NewEmptyPosRange() PosRange {
+	return PosRange{First: -1, Last: -1}
+}
+
 // ----------------------------------------------
 
 // Mapping represents a mapping between
@@ -159,6 +164,12 @@ func (sm SortableMapping) Less(i, j int) bool {
 // The function does not create a new slice for the merged
 // items. It's up to a function user to provide a function
 // specifying what to do with each item.
+//
+// The onItem argument is a function applied on each encountered
+// item (no mattter how data are chunked). The 'pos' argument
+// of the function provides last position for each language column.
+// This can be used to test (and resolve) possible gaps between
+// items (e.g. Manatee *mkalign* does not like them).
 func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping, pos *ProcPosition)) {
 	procPos := &ProcPosition{Left: 0, Right: 0}
 	iterL2L3 := NewIterator(mainMapping, procPos)
