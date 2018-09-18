@@ -33,6 +33,25 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
+// IgnorableError is represents an error
+// in parsing which does not affect resulting
+// data - e.g. additional tags in source file
+type IgnorableError struct {
+	message string
+}
+
+func (err IgnorableError) Error() string {
+	return err.message
+}
+
+// NewIgnorableError creates a new IngorableError instance
+// with formatted string (just like fmt.Errorf creates error).
+func NewIgnorableError(msg string, args ...interface{}) IgnorableError {
+	return IgnorableError{message: fmt.Sprintf(msg, args...)}
+}
+
+// -------------------------
+
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
@@ -87,11 +106,11 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 			return mapping.PosRange{}, fmt.Errorf("skipping invalid beg, end ('%s','%s') on line %d", beg, end, lineNum+1)
 
 		} else if b == -1 {
-			log.Printf("invalid beg ('%s') on line %d, using end", beg, lineNum+1)
+			log.Printf("ERROR: invalid beg ('%s') on line %d, using end", beg, lineNum+1)
 			return mapping.PosRange{e, e}, nil
 
 		} else {
-			log.Printf("invalid end ('%s') on line %d, using beg", end, lineNum+1)
+			log.Printf("ERROR: invalid end ('%s') on line %d, using beg", end, lineNum+1)
 			return mapping.PosRange{b, b}, nil
 		}
 	}
@@ -122,7 +141,7 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 	if len(srch) > 0 {
 		aligned := strings.Split(srch, ";")
 		if len(aligned) > 2 {
-			return mapping.Mapping{}, fmt.Errorf("Skipping invalid mapping on line %d", lineNum+1)
+			return mapping.Mapping{}, fmt.Errorf("skipping invalid mapping on line %d", lineNum+1)
 		}
 		l1, err1 := p.processColElm(aligned[0], p.attr1, lineNum)
 		if err1 != nil {
@@ -136,7 +155,7 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 		p.lastPivotPos = l2.Last
 		return mapping.Mapping{l1, l2}, nil
 	}
-	return mapping.Mapping{}, fmt.Errorf("skipping non-alignment line %d", lineNum)
+	return mapping.Mapping{}, NewIgnorableError("skipping non-alignment line %d", lineNum)
 }
 
 // ProcessFile reads an input XML file containing mappings between
@@ -149,14 +168,19 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 	reader.Buffer(make([]byte, bufio.MaxScanTokenSize), bufferSize)
 	for i := 0; reader.Scan(); i++ {
 		if i%1000000 == 0 {
-			log.Printf("Read %dm lines", i/1000000)
+			log.Printf("INFO: Read %dm lines", i/1000000)
 		}
 		mp, err := p.processLine(reader.Text(), i)
 		if err == nil {
 			onItem(mp)
 
 		} else {
-			log.Print(err)
+			switch err.(type) {
+			case IgnorableError:
+				log.Print("INFO: ", err)
+			default:
+				log.Print("ERROR: ", err)
+			}
 		}
 	}
 	if p.lastPos < p.pivotStructSize-1 {

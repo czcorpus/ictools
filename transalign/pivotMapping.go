@@ -73,8 +73,12 @@ type PivotMapping struct {
 // NewPivotMapping creates a new instance of PivotMapping
 // and opens a file scanner for it. No data is loaded in
 // this function (see PivotRange.Load()).
-func NewPivotMapping(file *os.File) *PivotMapping {
-	initialCap := common.FileSize(file.Name()) / fileToCapacityRatio
+func NewPivotMapping(file *os.File) (*PivotMapping, error) {
+	fSize, err := common.FileSize(file.Name())
+	if err != nil {
+		return nil, err
+	}
+	initialCap := fSize / fileToCapacityRatio
 	return &PivotMapping{
 		file:        file,
 		reader:      bufio.NewScanner(file),
@@ -82,7 +86,7 @@ func NewPivotMapping(file *os.File) *PivotMapping {
 		itemsEstim:  initialCap,
 		pivot:       make([]*mapping.PosRange, initialCap),
 		minIdx:      0,
-	}
+	}, nil
 }
 
 // PivotSize returns number of data lines in pivot language
@@ -150,7 +154,7 @@ func (hm *PivotMapping) slicePivot(rightLimit int) {
 // Load loads the respective data from a predefined file.
 func (hm *PivotMapping) Load() {
 	var part int
-	log.Printf("Loading %s ...", hm.file.Name())
+	log.Printf("INFO: Loading %s ...", hm.file.Name())
 	i := 0
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
@@ -162,11 +166,11 @@ func (hm *PivotMapping) Load() {
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)
 		if err1 != nil {
-			log.Printf("[WARNING] Failed to parse pivot on line %d: %s", i, err1)
+			log.Printf("ERROR: Failed to parse pivot on line %d: %s", i, err1)
 		}
 		l2Pair, err2 := mapping.NewPosRange(l2)
 		if err2 != nil {
-			log.Printf("[WARNING] Failed to parse other lang on line %d: %s", i, err2)
+			log.Printf("ERROR: Failed to parse other lang on line %d: %s", i, err2)
 		}
 		if i == 0 {
 			hm.minIdx = pivotPair.First
@@ -185,5 +189,5 @@ func (hm *PivotMapping) Load() {
 	}
 	// here hm.maxPartVal is already [max index]+1 (thank to the 'part' in the for cycle above)
 	hm.slicePivot(hm.maxPartVal)
-	log.Printf("...done (%d items).", len(hm.pivot))
+	log.Printf("INFO: Done (%d items).", len(hm.pivot))
 }

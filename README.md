@@ -1,8 +1,9 @@
-# ictools - a set of tools for generating corpora alignments
+# ictools - a program for generating corpora alignments
 
-This is a faster integrated replacement for "classic" *calign.py*, *compressrng.py*, *fixgaps.py*,
-*transalign.py* scripts used to prepare corpora alignment numeric data from lists of structural
-attribute values mapping between languages.
+This is a faster, less memory-consuming, integrated replacement for legacy *calign.py*,
+*compressrng.py*, *fixgaps.py*, *transalign.py* scripts used to prepare corpora alignment
+numeric data from lists of structural attribute values mapping between languages. It also fixes
+some problems with missing definitions of unaligned ranges you can encounter when using the scripts above.
 
 ## Contents
 

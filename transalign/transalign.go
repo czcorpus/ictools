@@ -82,7 +82,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	// we have to keep one of [-1, x], [x, -1] mapping separate
 	// because these two cannot be sorted together in a traditional way
 	mapEmptyL3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()/10) // 10 is just an estimate
-	log.Print("Computing new alignment:")
+	log.Print("INFO: Computing new alignment...")
 	var i int
 	for ix, rng := range pivotMapping1.pivot {
 		i = pivotMapping1.deindex(ix)
@@ -132,8 +132,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
 		}
 	}
-	log.Print("...Done.")
-	log.Print("Generating output...")
+	log.Print("INFO: Done")
+	log.Print("INFO: Generating output...")
 
 	done := make(chan bool, 2)
 	go func() {

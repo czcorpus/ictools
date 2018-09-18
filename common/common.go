@@ -23,23 +23,29 @@ import (
 	"strconv"
 )
 
+// Str2Int converts a string-represented integer to int.
+// In case of an error the function returns -1 and logs
+// and error message.
 func Str2Int(v string) int {
 	ans, err := strconv.Atoi(v)
 	if err != nil {
-		log.Printf("Failed to import string-encoded integer '%s'", v)
+		log.Printf("ERROR: Failed to import string-encoded integer '%s'", v)
 		return -1
 	}
 	return ans
 }
 
-func FileSize(path string) int {
+// FileSize returns a size of a specified file.
+// In case of an error the function returns
+// size -1 and a respective error
+func FileSize(path string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return -1
+		return -1, err
 	}
 	st, err := f.Stat()
 	if err != nil {
-		log.Printf("Failed to get file info: %s", err)
+		return -1, err
 	}
-	return int(st.Size())
+	return int(st.Size()), nil
 }
