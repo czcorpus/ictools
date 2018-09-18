@@ -29,17 +29,16 @@ go get -d https://github.com/czcorpus/ictools
 <a name="how_to_build_ictools_helper_script"></a>
 ### build helper script
 
-*Ictools* are written to work directly with *Manatee-open* library which itself is written in C++.
-This makes the build process a little more complicated then just `go get ...` or `go build`. To
-be able to build *ictools* you must have:
+*Ictools* are written to work directly with [Manatee-open](https://nlp.fi.muni.cz/trac/noske) library which
+itself is written in C++. This makes the build process a little more complicated then just `go get ...` or `go build`. To be able to build *ictools* you must have:
 
-* Manatee installed anywhere on your system, ideally with Python API wrapper (which is created by default),
-* Manatee (+ Finlib in older versions) sources.
+* *Manatee-open* binaries installed anywhere on your system, ideally with Python API wrapper (which is created by default),
+* *Manatee-open* sources.
 
-*Ictools* come with a simple *build* script (written in Python 2) which is able to handle most of the intricacies
-for you. In the best scenario, the script requires only Manatee-open version you are building against. It tries to find the library in system lib paths and download sources from Manatee-open project page. In case you have your Manatee-open
-installed in a non-standard location, you have to tell the script with `--manatee-lib` parameter. Also, if you
-already have Manatee (+ Finlib) sources downloaded, just tell the script with `--manatee-src` (or `--finlib-src`).
+*Ictools* come with a simple *build* script (written in Python 2) which is able to handle all the details
+for you. In the best scenario, the script requires only Manatee-open version you are building against. It tries to
+find the library in system lib paths and download sources from Manatee-open project page. In case you have your Manatee-open installed in a non-standard location, you have to tell the script with `--manatee-lib` parameter. Also, if you already have Manatee-open sources downloaded, you can skip the download by specifying source directory
+via `--manatee-src` (or `--finlib-src`).
 
 Let's say you have Manatee-open 2.150 installed on your system. Then just enter:
 
@@ -111,8 +110,8 @@ efficient as there is no process overhead, no repeated data serialization/deseri
 To prepare alignment data, two actions are necessary:
 
 1. importing of two or more XML files containing mappings between structures (typically sentences) of
-   two languages (one of them is considered a *pivot*) identified by their string IDs.
-1. create a new mapping between two or more non-pivot languages
+   two languages (one of them is considered a *pivot*) identified by their string IDs (*import* action).
+1. create a new mapping between two or more non-pivot languages (*transalign* action)
 
 Please note that the parser does not care about XML validity - it just looks for tags with the
 following form (actually, only *xtargets* attribute is significant):
