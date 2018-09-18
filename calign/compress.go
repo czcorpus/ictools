@@ -105,7 +105,7 @@ func CompressFromFile(file *os.File, onItem func(item mapping.Mapping)) {
 			compressStep(&item, &lastItem, onItem)
 
 		} else {
-			log.Printf("[WARNING] Failed to process line %d: %s", i, err)
+			log.Printf("ERROR: Failed to process line %d: %s", i, err)
 		}
 	}
 

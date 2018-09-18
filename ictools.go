@@ -52,19 +52,19 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 
 	c1, err := attrib.OpenCorpus(args.registryPath1)
 	if err != nil {
-		log.Fatalf("Failed to open corpus %s", args.registryPath1)
+		log.Fatalf("FATAL: Failed to open corpus %s", args.registryPath1)
 	}
 	attr1, err := attrib.OpenAttr(c1, args.attrName)
 	if err != nil {
-		log.Fatalf("Failed to open attribute %s", args.attrName)
+		log.Fatalf("FATAL: Failed to open attribute %s", args.attrName)
 	}
 	c2, err := attrib.OpenCorpus(args.registryPath2)
 	if err != nil {
-		log.Fatalf("Failed to open corpus %s", args.registryPath1)
+		log.Fatalf("FATAL: Failed to open corpus %s", args.registryPath1)
 	}
 	attr2, err := attrib.OpenAttr(c2, args.attrName)
 	if err != nil {
-		log.Fatalf("Failed to open attribute %s", args.attrName)
+		log.Fatalf("FATAL: Failed to open attribute %s", args.attrName)
 	}
 
 	var file *os.File
@@ -74,14 +74,14 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 	} else {
 		file, err = os.Open(args.mappingFilePath)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to open file %s", args.mappingFilePath))
+			log.Fatalf("FATAL: Failed to open file %s", args.mappingFilePath)
 		}
 	}
 
 	structName := strings.Split(args.attrName, ".")[0]
 	pivotStructSize, err := attrib.GetStructSize(c2, structName)
 	if err != nil {
-		log.Fatalf("Cannot determine size of structure %s", structName)
+		log.Fatalf("FATAL: Cannot determine size of structure %s", structName)
 	}
 	return file, calign.NewProcessor(attr1, attr2, pivotStructSize, args.quoteStyle)
 }
@@ -133,18 +133,24 @@ func runTransalign(filePath1 string, filePath2 string) {
 
 	file1, err = os.Open(filePath1)
 	if err != nil {
-		log.Panicf("Failed to open file %s", filePath1)
+		log.Fatalf("FATAL: Failed to open file %s", filePath1)
 	}
 	file2, err = os.Open(filePath2)
 	if err != nil {
-		log.Panicf("Failed to open file %s", filePath2)
+		log.Fatalf("FATAL: Failed to open file %s", filePath2)
 	}
 	if file2 != file2 {
 
 	}
-	hm1 := transalign.NewPivotMapping(file1)
+	hm1, err := transalign.NewPivotMapping(file1)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
 	hm1.Load()
-	hm2 := transalign.NewPivotMapping(file2)
+	hm2, err := transalign.NewPivotMapping(file2)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
 	hm2.Load()
 	transalign.Run(hm1, hm2)
 }
@@ -189,7 +195,7 @@ func runImport(args calignArgs, noCompress bool) {
 				}
 			})
 			if err != nil {
-				log.Fatal("ERROR: ", err)
+				log.Fatal("FATAL: ", err)
 
 			} else if len(buff2) > 0 {
 				ch2 <- buff2
@@ -256,8 +262,8 @@ func main() {
 		case "compressrng":
 			runCompress(flag.Arg(1))
 		default:
-			log.Printf("Unknown action '%s' sec.", flag.Arg(0))
+			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}
-		log.Printf("Finished in %01.2f sec.", float64(time.Now().UnixNano()-t1)/1e9)
+		log.Printf("INFO: Finished in %01.2f sec.", float64(time.Now().UnixNano()-t1)/1e9)
 	}
 }

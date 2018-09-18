@@ -186,5 +186,5 @@ func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(it
 		}
 	}
 
-	log.Print("...done.")
+	log.Print("INFO: Done.")
 }
