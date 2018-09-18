@@ -101,7 +101,7 @@ path.
 
 ### The default usage style
 
-This usage style is the recommended one as it handles whole import of XML data
+**This usage style is recommended** as it handles whole import of XML data
 (= *calign* -> *fixgaps* -> *compress*) in one step. The individual transformations the import
 is composed of run concurrently to be able to keep up with the classic scripts connected via
 pipes (where all the processes run concurrently too). Ictools' approach is a little bit more
