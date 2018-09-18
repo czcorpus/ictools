@@ -19,6 +19,7 @@
 // used to access Manatee C library.
 package attrib
 
+// #cgo CXXFLAGS: -std=c++11
 // #cgo CFLAGS: -I${SRCDIR}/attrib -I${SRCDIR}/attrib/corp
 // #cgo LDFLAGS:  -lmanatee -L${SRCDIR} -Wl,-rpath='$ORIGIN'
 // #include <stdlib.h>
