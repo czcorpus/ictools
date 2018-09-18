@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/czcorpus/ictools/attrib"
@@ -94,7 +95,7 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 	if beg == end {
 		b := attr.Str2ID(beg)
 		if b == -1 {
-			return mapping.PosRange{}, fmt.Errorf("skipping invalid beg/end ('%s') on line %d", beg, lineNum+1)
+			return mapping.PosRange{}, fmt.Errorf("skipping invalid position [ %s ] on line %d", beg, lineNum+1)
 		}
 		return mapping.PosRange{b, b}, nil
 	}
@@ -103,14 +104,14 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 
 	if b == -1 || e == -1 {
 		if b == -1 && e == -1 {
-			return mapping.PosRange{}, fmt.Errorf("skipping invalid beg, end ('%s','%s') on line %d", beg, end, lineNum+1)
+			return mapping.PosRange{}, fmt.Errorf("skipping invalid position range [ %s, %s ] on line %d", beg, end, lineNum+1)
 
 		} else if b == -1 {
-			log.Printf("ERROR: invalid beg ('%s') on line %d, using end", beg, lineNum+1)
+			log.Printf("ERROR: invalid left side of position range [ %s ] on line %d, using right side", beg, lineNum+1)
 			return mapping.PosRange{e, e}, nil
 
 		} else {
-			log.Printf("ERROR: invalid end ('%s') on line %d, using beg", end, lineNum+1)
+			log.Printf("ERROR: invalid right side of position range [ %s ] on line %d, using left side", end, lineNum+1)
 			return mapping.PosRange{b, b}, nil
 		}
 	}
@@ -179,7 +180,7 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 			case IgnorableError:
 				log.Print("INFO: ", err)
 			default:
-				log.Print("ERROR: ", err)
+				log.Printf("ERROR: %s (file: %s)", err, filepath.Base(file.Name()))
 			}
 		}
 	}
