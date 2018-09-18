@@ -29,10 +29,17 @@ go get -d https://github.com/czcorpus/ictools
 <a name="how_to_build_ictools_helper_script"></a>
 ### build helper script
 
-The *build* script handles all the intricacies regarding miscellaneous command line arguments
-and environment variables required to build the project and link it with *libmanatee.so* properly.
-It is written in Python 2 and requires Manatee Python wrapper libraries (these are created by default
-when building Manatee).
+*Ictools* are written to work directly with *Manatee-open* library which itself is written in C++.
+This makes the build process a little more complicated then just `go get ...` or `go build`. To
+be able to build *ictools* you must have:
+
+* Manatee installed anywhere on your system, ideally with Python API wrapper (which is created by default),
+* Manatee (+ Finlib in older versions) sources.
+
+*Ictools* come with a simple *build* script (written in Python 2) which is able to handle most of the intricacies
+for you. In the best scenario, the script requires only Manatee-open version you are building against. It tries to find the library in system lib paths and download sources from Manatee-open project page. In case you have your Manatee-open
+installed in a non-standard location, you have to tell the script with `--manatee-lib` parameter. Also, if you
+already have Manatee (+ Finlib) sources downloaded, just tell the script with `--manatee-src` (or `--finlib-src`).
 
 Let's say you have Manatee-open 2.150 installed on your system. Then just enter:
 
@@ -40,8 +47,8 @@ Let's say you have Manatee-open 2.150 installed on your system. Then just enter:
 ./build 2.150
 ```
 
-The script looks for *libmanatee.so* in typical locations (/usr/lib and /usr/local/lib) and
-downloads sources for *Manatee-open* and matching *Finlib* version.
+The script looks for `libmanatee.so` in typical locations (`/usr/lib` and `/usr/local/lib`) and
+downloads sources for `Manatee-open` and matching `Finlib` version.
 
 In case your Manatee installation resides in a custom directory, you must specify it yourself:
 
@@ -54,8 +61,7 @@ Manatee library and the version entered as the first argument (here 2.150) match
 
 Script finishes in one of two possible result states:
 
-* Two created files: *ictools* (a bash script), *ictools.bin* (a binary executable) in case *LD_LIBRARY_PATH* must be
-  set because of a non-standard location of *libmanatee.so*. You can just copy these files to */usr/local/bin*
+* Two created files: *ictools* (a bootstrap script), *ictools.bin* (a binary executable). This means that *LD_LIBRARY_PATH* must be set for *ictools* because of a non-standard location of *libmanatee.so*. You can just copy these files to */usr/local/bin*
   and refer the program as *ictools*.
 * One file: *ictools* (a binary executable) in case of standard system installation of *libmanatee.so* (i.e. the
   operating system is able to locate *libmanatee.so* by itself).
@@ -133,7 +139,8 @@ is used which may fail in case of some complex alignments):
 ictools -line-buffer 250000 -registry-path /var/local/corpora/registry import ....etc...
 ```
 
-In case you do not want a result file to be compressed, use *no-compress* arg:
+In case you do not want a result file to be compressed, use *no-compress* arg. Normally, you
+don't need this:
 
 ```bash
 ictools -no-compress ....etc....
