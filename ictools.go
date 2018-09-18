@@ -163,14 +163,17 @@ func runImport(args calignArgs, noCompress bool) {
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
 	go func() {
-		processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
+		err := processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
 			buff1 = append(buff1, item)
 			if len(buff1) == defaultChanBufferSize {
 				ch1 <- buff1
 				buff1 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 			}
 		})
-		if len(buff1) > 0 {
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+
+		} else if len(buff1) > 0 {
 			ch1 <- buff1
 		}
 		close(ch1)
