@@ -99,6 +99,12 @@ def unpack_archive(path):
     p.wait()
     return p.returncode
 
+def init_sources(manatee_src, finlib_src):
+    if finlib_src is not None:
+        subprocess.Popen('make clean', shell=True, cwd=finlib_src, executable='/bin/bash').wait()
+        subprocess.Popen('./configure --with-pcre', shell=True, cwd=finlib_src, executable='/bin/bash').wait()
+    subprocess.Popen('make clean', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
+    subprocess.Popen('./configure --with-pcre', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
 
 def build_project(manatee_src, finlib_src, manatee_lib):
     if finlib_src:
@@ -198,6 +204,7 @@ if __name__ == '__main__':
     except:
         pass
 
+    init_sources(manatee_src, finlib_src)
     build_project(manatee_src, finlib_src, manatee_lib)
 
     if should_generate_run_script:
