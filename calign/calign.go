@@ -136,7 +136,7 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 		p.lastPivotPos = l2.Last
 		return mapping.Mapping{l1, l2}, nil
 	}
-	return mapping.Mapping{}, fmt.Errorf("Ignoring line: %d", lineNum)
+	return mapping.Mapping{}, fmt.Errorf("skipping non-alignment line %d", lineNum)
 }
 
 // ProcessFile reads an input XML file containing mappings between

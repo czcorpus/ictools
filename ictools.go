@@ -48,13 +48,26 @@ type calignArgs struct {
 }
 
 func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
-	c1 := attrib.OpenCorpus(args.registryPath1)
-	attr1 := attrib.OpenAttr(c1, args.attrName)
-	c2 := attrib.OpenCorpus(args.registryPath2)
-	attr2 := attrib.OpenAttr(c2, args.attrName)
+	var err error
+
+	c1, err := attrib.OpenCorpus(args.registryPath1)
+	if err != nil {
+		log.Fatalf("Failed to open corpus %s", args.registryPath1)
+	}
+	attr1, err := attrib.OpenAttr(c1, args.attrName)
+	if err != nil {
+		log.Fatalf("Failed to open attribute %s", args.attrName)
+	}
+	c2, err := attrib.OpenCorpus(args.registryPath2)
+	if err != nil {
+		log.Fatalf("Failed to open corpus %s", args.registryPath1)
+	}
+	attr2, err := attrib.OpenAttr(c2, args.attrName)
+	if err != nil {
+		log.Fatalf("Failed to open attribute %s", args.attrName)
+	}
 
 	var file *os.File
-	var err error
 	if args.mappingFilePath == "" {
 		file = os.Stdin
 
@@ -64,7 +77,12 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 			panic(fmt.Sprintf("Failed to open file %s", args.mappingFilePath))
 		}
 	}
-	pivotStructSize := attrib.GetStructSize(c2, strings.Split(args.attrName, ".")[0])
+
+	structName := strings.Split(args.attrName, ".")[0]
+	pivotStructSize, err := attrib.GetStructSize(c2, structName)
+	if err != nil {
+		log.Fatalf("Cannot determine size of structure %s", structName)
+	}
 	return file, calign.NewProcessor(attr1, attr2, pivotStructSize, args.quoteStyle)
 }
 

@@ -17,31 +17,59 @@
 
 #include "corp/corpus.hh"
 #include "attrib.h"
+#include <string.h>
 #include <stdio.h>
 #include <iostream>
 
 using namespace std;
 
+// a bunch of wrapper functions we need to get data
+// from Manatee
 
-PosAttrV get_attr(CorpusV corp, const char* attrName) {
+
+AttrRetval get_attr(CorpusV corp, const char* attrName) {
     string tmp(attrName);
-    PosAttrV attr = ((Corpus*)corp)->get_attr(tmp);
-    return attr;
+    AttrRetval ans;
+    try {
+        PosAttrV attr = ((Corpus*)corp)->get_attr(tmp);
+        ans.value = attr;
+        return ans;
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+        return ans;
+    }
 }
 
 long attr_str2id(PosAttrV attr, const char* str) {
     return ((PosAttr *)attr)->str2id(str);
 }
 
-long get_struct_size(CorpusV corpus, const char* structName) {
+StructSizeRetval get_struct_size(CorpusV corpus, const char* structName) {
     string tmp(structName);
-    StructV strct = ((Corpus*)corpus)->get_struct(tmp);
-    return ((Structure *)strct)->size();
+    StructSizeRetval ans;
+    try {
+        StructV strct = ((Corpus*)corpus)->get_struct(tmp);
+        ans.value = ((Structure *)strct)->size();
+        return ans;
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+        return ans;
+    }
 }
 
-CorpusV open_corpus(const char* corpusPath) {
+CorpusRetval open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
-    return new Corpus(tmp);
+    CorpusRetval ans;
+    try {
+        ans.value = new Corpus(tmp);
+        return ans;
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+        return ans;
+    }
 }
 
 void close_corpus(CorpusV corpus) {
@@ -51,16 +79,3 @@ void close_corpus(CorpusV corpus) {
 void close_attr(PosAttrV attr) {
     delete (PosAttr *)attr;
 }
-
-/*
-int main() {
-
-	CorpusV corp = open_corpus("/var/local/corpora/registry/syn2015");
-	PosAttrV attr = get_attr(corp, "s.id");
-	cout << "corp: " << ((PosAttr *)attr)->str2id("5_elefan:1:4641:4")  << endl;
-
-	close_attr(attr);
-	//close_corpus(corp);
-
-}
-*/
