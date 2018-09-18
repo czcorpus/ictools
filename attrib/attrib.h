@@ -23,11 +23,69 @@ typedef void* PosAttrV;
 typedef void* CorpusV;
 typedef void* StructV;
 
-long get_struct_size(CorpusV corpus, const char* structName);
-PosAttrV get_attr(CorpusV corp, const char* attrName);
+/**
+ * CorpusRetval wraps both
+ * a returned Manatee corpus object
+ * and possible error
+ */
+typedef struct CorpusRetval {
+    CorpusV value;
+    const char * err;
+} CorpusRetval;
+
+
+/**
+ * AttrRetval wraps both
+ * a returned Manatee attribute object
+ * and possible error
+ */
+typedef struct AttrRetval {
+    PosAttrV value;
+    const char * err;
+} AttrRetval;
+
+/**
+ * StructSizeRetval wraps both
+ * a returned size of a structure object
+ * and possible error
+ */
+typedef struct StructSizeRetval {
+    long value;
+    const char * err;
+} StructSizeRetval;
+
+/**
+ * Provide number of structures of a given name
+ */
+StructSizeRetval get_struct_size(CorpusV corpus, const char* structName);
+
+/**
+ * Return a Manatee PosAttr instance
+ */
+AttrRetval get_attr(CorpusV corp, const char* attrName);
+
+/**
+ * Get numeric identifier of a provided PosAttr value.
+ */
 long attr_str2id(PosAttrV attr, const char* str);
-CorpusV open_corpus(const char* corpusPath);
+
+/**
+ * Create a Manatee corpus instance
+ */
+CorpusRetval open_corpus(const char* corpusPath);
+
+/**
+ * Note: currently not used but we probably should
+ * to make the code correct (yet there should be
+ * no memory issues as we always open two corpora
+ * and then the program exits).
+ */
 void close_corpus(CorpusV corpus);
+
+/**
+ * Note: currently not used; for more info see
+ * close_corpus.
+ */
 void close_attr(PosAttrV attr);
 
 #ifdef __cplusplus
