@@ -109,9 +109,12 @@ efficient as there is no process overhead, no repeated data serialization/deseri
 
 To prepare alignment data, two actions are necessary:
 
-1. importing of two or more XML files containing mappings between structures (typically sentences) of
-   two languages (one of them is considered a *pivot*) identified by their string IDs (*import* action).
+1. importing of two or more XML files containing mappings between structures (typically sentences with some unique identifiers) of two languages:
+     1. a language to be aligned with some other non-pivot language,
+     1. a pivot language (used for all the alignment generating actions).
+   the pivot) of them is considered a *pivot*) (*import* action).
 1. create a new mapping between two or more non-pivot languages (*transalign* action)
+  * this requires the previous action to be run for at least two different non-pivot languages
 
 Please note that the parser does not care about XML validity - it just looks for tags with the
 following form (actually, only *xtargets* attribute is significant):
