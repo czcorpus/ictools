@@ -74,7 +74,7 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(
 
 // CompressFromChan reduces subsequent lines with -1 in one of the columns
 // to a single line with proper range (e.g. "-1   am,an" where 'am' is the
-// beginning of the first line in the series and 'am' is the end of the last
+// beginning of the first line in the series and 'an' is the end of the last
 // line in the series.
 func CompressFromChan(ch chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
 	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder

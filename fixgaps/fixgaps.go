@@ -68,11 +68,15 @@ func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mappin
 
 // FromChan is the same as FromFile except from the source
 // of data. In this case, a channel is used.
-func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item mapping.Mapping)) {
+func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item mapping.Mapping)) error {
 	lastL1 := -1
 	lastL2 := -1
 	for buff := range ch {
 		for _, item := range buff {
+			if item.From.First != -1 && item.From.First <= lastL1 ||
+				item.To.First != -1 && item.To.First <= lastL2 {
+				return fmt.Errorf("alignment [%s] overlaps an already covered range (left lang: %d, pivot lang: %d)", item, lastL1, lastL2)
+			}
 			if !startFromZero && lastL1 == -1 && lastL2 == -1 {
 				lastL1 = item.From.First
 				lastL2 = item.To.First
@@ -94,4 +98,5 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item ma
 			onItem(item)
 		}
 	}
+	return nil
 }

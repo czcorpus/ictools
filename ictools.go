@@ -170,8 +170,10 @@ func runImport(args calignArgs, noCompress bool) {
 		close(ch1)
 	}()
 
+	var err error
+
 	if noCompress {
-		fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
+		err = fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
 			fmt.Println(item)
 		})
 
@@ -179,15 +181,19 @@ func runImport(args calignArgs, noCompress bool) {
 		ch2 := make(chan []mapping.Mapping, 5)
 		go func() {
 			buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
-			fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
+			err = fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
 				buff2 = append(buff2, item)
 				if len(buff2) == defaultChanBufferSize {
 					ch2 <- buff2
 					buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 				}
 			})
-			if len(buff2) > 0 {
+			if err != nil {
+				log.Fatal("ERROR: ", err)
+
+			} else if len(buff2) > 0 {
 				ch2 <- buff2
+
 			}
 			close(ch2)
 		}()
