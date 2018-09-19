@@ -30,6 +30,8 @@ import (
 
 // ---------------------------
 
+// skipEmpty searches for a valid non-empty (!= -1) pivot range corresponding
+// to provided range [idx, final] (or [final, idx] with step -1).
 func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 	var step int
 
@@ -53,7 +55,6 @@ func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 		}
 		idx += step
 	}
-
 	return val
 }
 
@@ -96,8 +97,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				changed = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.First))
 			}
 			if pivotMapping2.HasPivotRange(rng.Last) {
-				var lChanged bool
-				lChanged = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
+				lChanged := enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
 				changed = changed || lChanged
 			}
 			if changed {
@@ -107,8 +107,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 					changed = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.First))
 				}
 				if pivotMapping1.HasPivotRange(rng.Last) {
-					var lChanged bool
-					lChanged = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
+					lChanged := enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
 					changed = changed || lChanged
 				}
 			}
@@ -148,7 +147,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	<-done
 
 	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping, pos *mapping.ProcPosition) {
-		if pos.Left == 0 && item.From.First > 0 {
+		if pos.Left == -1 && item.From.First > 0 {
 			fmt.Println(mapping.Mapping{
 				From: mapping.PosRange{
 					First: 0,
@@ -157,7 +156,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				To: mapping.NewEmptyPosRange(),
 			})
 
-		} else if pos.Right == 0 && item.To.First > 0 {
+		} else if pos.Right == -1 && item.To.First > 0 {
 			fmt.Println(mapping.Mapping{
 				From: mapping.NewEmptyPosRange(),
 				To: mapping.PosRange{

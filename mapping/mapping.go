@@ -171,7 +171,7 @@ func (sm SortableMapping) Less(i, j int) bool {
 // This can be used to test (and resolve) possible gaps between
 // items (e.g. Manatee *mkalign* does not like them).
 func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping, pos *ProcPosition)) {
-	procPos := &ProcPosition{Left: 0, Right: 0}
+	procPos := &ProcPosition{Left: -1, Right: -1}
 	iterL2L3 := NewIterator(mainMapping, procPos)
 	iterL3 := NewIterator(mapFromEmpty, procPos)
 
