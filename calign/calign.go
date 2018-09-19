@@ -53,6 +53,21 @@ func NewIgnorableError(msg string, args ...interface{}) IgnorableError {
 
 // -------------------------
 
+type FileImportError struct {
+	line    int
+	message string
+}
+
+func (err FileImportError) Error() string {
+	return fmt.Sprintf("%s (line: %d)", err.message, err.line)
+}
+
+func NewFileImportError(err error, line int) FileImportError {
+	return FileImportError{message: err.Error(), line: line}
+}
+
+// -------------------------
+
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
@@ -164,10 +179,11 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 // transforms them into a numeric representation based on internal
 // identifiers used by Manatee.
 // The function does not print anything to stdout.
-func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping)) {
+func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping)) error {
 	reader := bufio.NewScanner(file)
 	reader.Buffer(make([]byte, bufio.MaxScanTokenSize), bufferSize)
-	for i := 0; reader.Scan(); i++ {
+	var i int
+	for i = 0; reader.Scan(); i++ {
 		if i%1000000 == 0 {
 			log.Printf("INFO: Read %dm lines", i/1000000)
 		}
@@ -193,4 +209,9 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 			},
 		})
 	}
+	err := reader.Err()
+	if err != nil {
+		return NewFileImportError(err, i)
+	}
+	return nil
 }
