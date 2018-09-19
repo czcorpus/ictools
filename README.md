@@ -3,7 +3,10 @@
 This is a faster, less memory-consuming, integrated replacement for legacy *calign.py*,
 *compressrng.py*, *fixgaps.py*, *transalign.py* scripts used to prepare corpora alignment
 numeric data from lists of structural attribute values mapping between languages. It also fixes
-some problems with missing definitions of unaligned ranges you can encounter when using the scripts above.
+some problems with missing ranges for unaligned structures you can encounter when using the scripts above.
+
+Note: you still need *mkalign* tool distributed along with *Manatee-open* to enable corpora alignments
+in *KonText* (or NoSkE).
 
 ## Contents
 
