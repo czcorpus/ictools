@@ -63,6 +63,7 @@ func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 // have been changed is returned.
 func enwrapRange(r1 *mapping.PosRange, r2 *mapping.PosRange) bool {
 	changed := false
+
 	if r2.First < r1.First {
 		r1.First = r2.First
 		changed = true
@@ -87,9 +88,12 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	var i int
 	for ix, rng := range pivotMapping1.pivot {
 		i = pivotMapping1.deindex(ix)
-		if i < next || rng == nil {
+
+		lang1Range, ok := pivotMapping1.PivotToLang(i)
+		if i < next || rng == nil || ok && lang1Range.First == -1 {
 			continue
 		}
+
 		changed := true
 		for changed {
 			changed = false
@@ -100,6 +104,12 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				lChanged := enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
 				changed = changed || lChanged
 			}
+
+			lang2Range, ok := pivotMapping2.PivotToLang(rng.First)
+			if ok && lang2Range.First == -1 {
+				break
+			}
+
 			if changed {
 				pivotMapping1.SetPivotRange(i, rng)
 				changed = false
@@ -121,6 +131,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			First: skipEmpty(rng.First, rng.Last+1, pivotMapping2),
 			Last:  skipEmpty(rng.Last, rng.First-1, pivotMapping2),
 		}
+
 		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
 			continue
 
