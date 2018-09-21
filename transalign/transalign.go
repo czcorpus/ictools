@@ -30,9 +30,14 @@ import (
 
 // ---------------------------
 
-// skipEmpty searches for a valid non-empty (!= -1) pivot range corresponding
-// to provided range [idx, final] (or [final, idx] with step -1).
-func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
+// skipEmpty searches for a valid non-empty (!= -1) non-pivot language
+//  range corresponding matching to provided pivot range [idx, final]
+// (or [final, idx] with step -1).
+//
+// The function returns both non-pivot lang. range and matching pivot range
+// (which may have different 'final' value).
+// The latter value is used to detect empty intersections.
+func skipEmpty(idx int, final int, hMapping *PivotMapping) (int, int) {
 	var step int
 
 	if idx < final {
@@ -55,13 +60,13 @@ func skipEmpty(idx int, final int, hMapping *PivotMapping) int {
 		}
 		idx += step
 	}
-	return val
+	return val, idx - step
 }
 
-// enwrapRange checks and extends limit (if necessary)
+// expandToAlign checks and extends limit (if necessary)
 // of range r1 to include r2. Status whether the bounds
 // have been changed is returned.
-func enwrapRange(r1 *mapping.PosRange, r2 *mapping.PosRange) bool {
+func expandToAlign(r1 *mapping.PosRange, r2 *mapping.PosRange) bool {
 	changed := false
 
 	if r2.First < r1.First {
@@ -85,61 +90,69 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	// because these two cannot be sorted together in a traditional way
 	mapEmptyL3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()/10) // 10 is just an estimate
 	log.Print("INFO: Computing new alignment...")
+
 	var i int
+	var extRng *mapping.PosRange
+
 	for ix, rng := range pivotMapping1.pivot {
 		i = pivotMapping1.deindex(ix)
 
-		lang1Range, ok := pivotMapping1.PivotToLang(i)
-		if i < next || rng == nil || ok && lang1Range.First == -1 {
+		if i < next || rng == nil {
 			continue
+		}
+		extRng = &mapping.PosRange{
+			First: rng.First,
+			Last:  rng.Last,
 		}
 
 		changed := true
 		for changed {
 			changed = false
-			if pivotMapping2.HasPivotRange(rng.First) {
-				changed = enwrapRange(rng, pivotMapping2.GetPivotRange(rng.First))
+			if pivotMapping2.HasPivotRange(extRng.First) {
+				changed = expandToAlign(extRng, pivotMapping2.GetPivotRange(extRng.First))
 			}
-			if pivotMapping2.HasPivotRange(rng.Last) {
-				lChanged := enwrapRange(rng, pivotMapping2.GetPivotRange(rng.Last))
+			if pivotMapping2.HasPivotRange(extRng.Last) {
+				lChanged := expandToAlign(extRng, pivotMapping2.GetPivotRange(extRng.Last))
 				changed = changed || lChanged
 			}
 
-			lang2Range, ok := pivotMapping2.PivotToLang(rng.First)
-			if ok && lang2Range.First == -1 {
-				break
-			}
-
 			if changed {
-				pivotMapping1.SetPivotRange(i, rng)
 				changed = false
-				if pivotMapping1.HasPivotRange(rng.First) {
-					changed = enwrapRange(rng, pivotMapping1.GetPivotRange(rng.First))
+				if pivotMapping1.HasPivotRange(extRng.First) {
+					changed = expandToAlign(extRng, pivotMapping1.GetPivotRange(extRng.First))
 				}
-				if pivotMapping1.HasPivotRange(rng.Last) {
-					lChanged := enwrapRange(rng, pivotMapping1.GetPivotRange(rng.Last))
+				if pivotMapping1.HasPivotRange(extRng.Last) {
+					lChanged := expandToAlign(extRng, pivotMapping1.GetPivotRange(extRng.Last))
 					changed = changed || lChanged
 				}
 			}
 		}
-		next = rng.Last + 1
-		l2 := mapping.PosRange{
-			First: skipEmpty(rng.First, rng.Last+1, pivotMapping1),
-			Last:  skipEmpty(rng.Last, rng.First-1, pivotMapping1),
-		}
-		l3 := mapping.PosRange{
-			First: skipEmpty(rng.First, rng.Last+1, pivotMapping2),
-			Last:  skipEmpty(rng.Last, rng.First-1, pivotMapping2),
-		}
+
+		next = extRng.Last + 1
+		l2f, i2f := skipEmpty(extRng.First, extRng.Last+1, pivotMapping1)
+		l2l, i2l := skipEmpty(extRng.Last, extRng.First-1, pivotMapping1)
+		l3f, i3f := skipEmpty(extRng.First, extRng.Last+1, pivotMapping2)
+		l3l, i3l := skipEmpty(extRng.Last, extRng.First-1, pivotMapping2)
+		l2 := mapping.PosRange{First: l2f, Last: l2l}
+		l3 := mapping.PosRange{First: l3f, Last: l3l}
 
 		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
 			continue
 
-		} else if l2.First == -1 && l3.First != -1 {
-			mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{From: l2, To: l3})
-
 		} else {
-			mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
+
+			// empty intersection (expansion got too wide through empty mappings)
+			if (i3f > i2l || i3l < i2f) && l3f != -1 && l2f != -1 {
+				l3.First = -1
+				l3.Last = -1
+			}
+
+			if l2.First == -1 && l3.First != -1 {
+				mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{From: l2, To: l3})
+
+			} else {
+				mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
+			}
 		}
 	}
 	log.Print("INFO: Done")
@@ -166,6 +179,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				},
 				To: mapping.NewEmptyPosRange(),
 			})
+			pos.Left = item.From.First - 1
 
 		} else if pos.Right == -1 && item.To.First > 0 {
 			fmt.Println(mapping.Mapping{
@@ -175,26 +189,26 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 					Last:  item.To.First - 1,
 				},
 			})
+			pos.Right = item.To.First - 1
 
-		} else {
-			if item.From.First > pos.Left+1 {
-				fmt.Println(mapping.Mapping{
-					From: mapping.PosRange{
-						First: pos.Left + 1,
-						Last:  item.From.First - 1,
-					},
-					To: mapping.NewEmptyPosRange(),
-				})
-			}
-			if item.To.First > pos.Right+1 {
-				fmt.Println(mapping.Mapping{
-					From: mapping.NewEmptyPosRange(),
-					To: mapping.PosRange{
-						First: pos.Right + 1,
-						Last:  item.To.First - 1,
-					},
-				})
-			}
+		}
+		if item.From.First > pos.Left+1 {
+			fmt.Println(mapping.Mapping{
+				From: mapping.PosRange{
+					First: pos.Left + 1,
+					Last:  item.From.First - 1,
+				},
+				To: mapping.NewEmptyPosRange(),
+			})
+		}
+		if item.To.First > pos.Right+1 {
+			fmt.Println(mapping.Mapping{
+				From: mapping.NewEmptyPosRange(),
+				To: mapping.PosRange{
+					First: pos.Right + 1,
+					Last:  item.To.First - 1,
+				},
+			})
 		}
 		fmt.Println(item)
 	})
