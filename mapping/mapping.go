@@ -170,10 +170,9 @@ func (sm SortableMapping) Less(i, j int) bool {
 // of the function provides last position for each language column.
 // This can be used to test (and resolve) possible gaps between
 // items (e.g. Manatee *mkalign* does not like them).
-func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping, pos *ProcPosition)) {
-	procPos := &ProcPosition{Left: -1, Right: -1}
-	iterL2L3 := NewIterator(mainMapping, procPos)
-	iterL3 := NewIterator(mapFromEmpty, procPos)
+func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping)) {
+	iterL2L3 := NewIterator(mainMapping)
+	iterL3 := NewIterator(mapFromEmpty)
 
 	for iterL2L3.Unfinished() || iterL3.Unfinished() {
 		if iterL3.HasPriorityOver(&iterL2L3) || !iterL2L3.Unfinished() {
