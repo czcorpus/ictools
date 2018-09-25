@@ -78,11 +78,15 @@ func NewEmptyPosRange() PosRange {
 // These mappings are in general M:N
 // (which is why we use PosRange internally here)
 type Mapping struct {
-	From PosRange
-	To   PosRange
+	From  PosRange
+	To    PosRange
+	IsGap bool
 }
 
 func (m Mapping) String() string {
+	if m.IsGap {
+		return fmt.Sprintf("%s\t%s\tg", m.From, m.To)
+	}
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
 }
 
@@ -93,6 +97,19 @@ func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
 	return Mapping{
 		PosRange{from1, from2},
 		PosRange{to1, to2},
+		false,
+	}
+}
+
+// NewGapMapping creates a new instance of Mapping
+// with isGap set to true.
+// The arguments can be understood as follows:
+// from1,from2[TAB]to1,to2
+func NewGapMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
+	return Mapping{
+		PosRange{from1, from2},
+		PosRange{to1, to2},
+		true,
 	}
 }
 
@@ -114,7 +131,7 @@ func NewMappingFromString(src string) (Mapping, error) {
 	if err2 != nil {
 		return Mapping{}, err2
 	}
-	return Mapping{r1, r2}, nil
+	return Mapping{r1, r2, len(items) == 3}, nil
 }
 
 // ----------------------------------------------

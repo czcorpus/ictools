@@ -46,7 +46,6 @@ type PosRangeMap map[int]mapping.PosRange
 // that each data row with range r1, r2 (r2 > r1)
 // is stored as r1, r1+1, ..., r2-1, r2 (but each
 // line still knows the original range it belongs to)
-
 type PivotMapping struct {
 	// source file
 	file *os.File
@@ -56,6 +55,10 @@ type PivotMapping struct {
 
 	// maps ranges from other language to pivot
 	langToPivot map[int]*mapping.PosRange
+
+	// gaps identifes all the rows which represent gaps between texts etc.
+	// These rows cannot be used to expand translation range.
+	gaps map[int]bool
 
 	// list of lines mapping language ranges to pivot ranges (pivot language).
 	ranges []*mapping.PosRange
@@ -78,11 +81,12 @@ func NewPivotMapping(file *os.File) (*PivotMapping, error) {
 		reader:      bufio.NewScanner(file),
 		langToPivot: make(map[int]*mapping.PosRange),
 		itemsEstim:  initialCap,
+		gaps:        make(map[int]bool),
 		ranges:      make([]*mapping.PosRange, 0, initialCap),
 	}, nil
 }
 
-// PivotToLang translates a data line of pivot lang. into a PosRange
+// LangToPivot translates a data line of pivot lang. into a PosRange
 // within the other lang.
 func (hm *PivotMapping) LangToPivot(idx int) (*mapping.PosRange, bool) {
 	ans, ok := hm.langToPivot[idx]
@@ -96,6 +100,10 @@ func (hm *PivotMapping) Name() string {
 
 func (hm *PivotMapping) Size() int {
 	return len(hm.ranges)
+}
+
+func (hm *PivotMapping) HasGapAtRow(idx int) bool {
+	return hm.gaps[idx]
 }
 
 func (hm *PivotMapping) addMapping(langPair *mapping.PosRange) int {
@@ -122,9 +130,6 @@ func (hm *PivotMapping) Load() {
 		elms := strings.Split(hm.reader.Text(), "\t")
 		// the mapping in the file is (L2 -> L1/pivot)
 		pivot := strings.Split(elms[1], ",")
-		if pivot[0] == "-1" {
-			continue
-		}
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)
 		if err1 != nil {
@@ -136,6 +141,7 @@ func (hm *PivotMapping) Load() {
 		}
 		i = hm.addMapping(&l2Pair)
 		hm.langToPivot[i] = &pivotPair
+		hm.gaps[i] = len(elms) == 3
 	}
 	log.Printf("INFO: Done (%d items).", len(hm.ranges))
 }

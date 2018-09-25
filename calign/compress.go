@@ -29,18 +29,18 @@ import (
 func mkMapping(beg int, end int, rightEmpty bool) mapping.Mapping {
 	if beg == end {
 		if rightEmpty {
-			return mapping.NewMapping(beg, beg, -1, -1)
+			return mapping.NewGapMapping(beg, beg, -1, -1)
 		}
-		return mapping.NewMapping(-1, -1, beg, beg)
+		return mapping.NewGapMapping(-1, -1, beg, beg)
 	}
 	if rightEmpty {
-		return mapping.NewMapping(beg, end, -1, -1)
+		return mapping.NewGapMapping(beg, end, -1, -1)
 	}
-	return mapping.NewMapping(-1, -1, beg, end)
+	return mapping.NewGapMapping(-1, -1, beg, end)
 }
 
 func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(item mapping.Mapping)) {
-	if item.To.First == -1 {
+	if item.To.First == -1 && item.IsGap {
 		if lastItem.From.First == -2 {
 			lastItem.From.First = item.From.First
 			lastItem.From.Last = item.From.Last
@@ -55,7 +55,7 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(
 		lastItem.From.First = -2
 	}
 
-	if item.From.First == -1 {
+	if item.From.First == -1 && item.IsGap {
 		if lastItem.To.First == -2 {
 			lastItem.To.First = item.To.First
 			lastItem.To.Last = item.To.Last
@@ -77,7 +77,7 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(
 // beginning of the first line in the series and 'an' is the end of the last
 // line in the series.
 func CompressFromChan(ch chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
-	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for buff := range ch {
 		for _, item := range buff {

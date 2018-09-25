@@ -28,6 +28,37 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
+func fetchRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) bool {
+	if langIdx >= len(pm.ranges) {
+		return true // TODO !!!
+	}
+	langPos.First = pm.ranges[langIdx].First
+	langPos.Last = pm.ranges[langIdx].Last
+	pivot, ok := pm.LangToPivot(langIdx)
+	if !ok {
+		// TODO
+	}
+	pivotPos.First = pivot.First
+	pivotPos.Last = pivot.Last
+	return pm.HasGapAtRow(langIdx)
+}
+
+func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) {
+	if langIdx >= len(pm.ranges) {
+		return
+	}
+	if langPos.First == -1 {
+		langPos.First = pm.ranges[langIdx].First
+	}
+
+	langPos.Last = pm.ranges[langIdx].Last
+	pivot, ok := pm.LangToPivot(langIdx)
+	if !ok {
+		// TODO
+	}
+	pivotPos.Last = pivot.Last
+}
+
 // Run implements an algorith for finding a mapping
 // between L1 and L1 based on two "half mappings"
 // L1 -> LP and L2 -> LP.
@@ -42,13 +73,77 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	log.Print("INFO: Done")
 	log.Print("INFO: Generating output...")
 
-	//l2Start := 0
-	//l2End := 0
-	//pivot2Pos := 0
-	//var pivot2Row mapping.PosRange
+	l1Idx := 0
+	l1Pos := mapping.PosRange{}
+	p1Pos := mapping.PosRange{}
+	l2Idx := 0
+	l2Pos := mapping.PosRange{}
+	p2Pos := mapping.PosRange{}
 
-	for _, l1Row := range pivotMapping1.ranges {
-		fmt.Println(l1Row)
+	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
+	for l1Idx < len(pivotMapping1.ranges) && l2Idx < len(pivotMapping2.ranges) {
+
+		// ----
+
+		if p1Pos.First < p2Pos.First { // must align start
+			if p1Pos.Last == -1 {
+				fmt.Println(mapping.Mapping{
+					From: l1Pos,
+					To:   mapping.NewEmptyPosRange(),
+				})
+			}
+			l1Idx++
+			fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+
+		} else if p1Pos.First > p2Pos.First { // must align start
+			if p2Pos.Last == -1 {
+				fmt.Println(mapping.Mapping{
+					From: mapping.NewEmptyPosRange(),
+					To:   l2Pos,
+				})
+			}
+			l2Idx++
+			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
+		} else {
+			// we're even in terms of pivots begin
+			//log.Print("WE'RE EVEN CURR RANGES: ", l1Pos, p1Pos, " | ", l2Pos, p2Pos)
+			//log.Print("l2 is gap: ", l2IsGap)
+
+			/*
+				if !l2IsGap && pivotMapping2.HasGapAtRow(l2Idx) {
+					log.Print(">>>> INTER")
+
+				} else if l2IsGap && !pivotMapping2.HasGapAtRow(l2Idx) {
+					log.Print("XXX")
+				}
+			*/
+
+			// but ..
+
+			if p1Pos.Last > p2Pos.Last {
+				//log.Print("Pivot 2 smaller - appending")
+				l2Idx++
+				appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
+			} else if p2Pos.Last > p1Pos.Last {
+				//log.Print("Pivot 1 smaller - appending")
+				l1Idx++
+				appendRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+
+			} else {
+				fmt.Println(mapping.Mapping{
+					From: l1Pos,
+					To:   l2Pos,
+				})
+				l1Idx++
+				l2Idx++
+				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+			}
+		}
 	}
 
 	done := make(chan bool, 2)
