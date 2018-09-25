@@ -23,7 +23,6 @@ package transalign
 import (
 	"fmt"
 	"log"
-	"sort"
 
 	"github.com/czcorpus/ictools/mapping"
 )
@@ -51,7 +50,9 @@ func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRang
 		langPos.First = pm.ranges[langIdx].First
 	}
 
-	langPos.Last = pm.ranges[langIdx].Last
+	if pm.ranges[langIdx].Last != -1 {
+		langPos.Last = pm.ranges[langIdx].Last
+	}
 	pivot, ok := pm.LangToPivot(langIdx)
 	if !ok {
 		// TODO
@@ -63,11 +64,6 @@ func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRang
 // between L1 and L1 based on two "half mappings"
 // L1 -> LP and L2 -> LP.
 func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
-
-	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size()) // TODO size estimation
-	// we have to keep one of [-1, x], [x, -1] mapping separate
-	// because these two cannot be sorted together in a traditional way
-	mapEmptyL2 := make([]mapping.Mapping, 0, pivotMapping1.Size()/10) // 10 is just an estimate
 	log.Print("INFO: Computing new alignment...")
 
 	log.Print("INFO: Done")
@@ -84,9 +80,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 	for l1Idx < len(pivotMapping1.ranges) && l2Idx < len(pivotMapping2.ranges) {
-
-		// ----
-
+		//log.Print("CURR >>> ", l1Pos, " --> ", p1Pos, " #### ", l2Pos, " --> ", p2Pos)
 		if p1Pos.First < p2Pos.First { // must align start
 			if p1Pos.Last == -1 {
 				fmt.Println(mapping.Mapping{
@@ -96,6 +90,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			}
 			l1Idx++
 			fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+			//log.Print("aligning L1 by fetching ", l1Pos, " --> ", p1Pos)
 
 		} else if p1Pos.First > p2Pos.First { // must align start
 			if p2Pos.Last == -1 {
@@ -106,32 +101,33 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			}
 			l2Idx++
 			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+			//log.Print("aligning L2 by fetching ", l2Pos, " --> ", p2Pos)
 
 		} else {
-			// we're even in terms of pivots begin
-			//log.Print("WE'RE EVEN CURR RANGES: ", l1Pos, p1Pos, " | ", l2Pos, p2Pos)
-			//log.Print("l2 is gap: ", l2IsGap)
-
-			/*
-				if !l2IsGap && pivotMapping2.HasGapAtRow(l2Idx) {
-					log.Print(">>>> INTER")
-
-				} else if l2IsGap && !pivotMapping2.HasGapAtRow(l2Idx) {
-					log.Print("XXX")
-				}
-			*/
-
-			// but ..
 
 			if p1Pos.Last > p2Pos.Last {
-				//log.Print("Pivot 2 smaller - appending")
 				l2Idx++
 				appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+				//log.Print("append row L2 ", l2Pos, " --> ", p2Pos)
 
 			} else if p2Pos.Last > p1Pos.Last {
-				//log.Print("Pivot 1 smaller - appending")
-				l1Idx++
-				appendRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				if pivotMapping2.HasGapAtRow(l2Idx) {
+
+					fmt.Println(mapping.Mapping{
+						From: l1Pos,
+						To:   mapping.NewEmptyPosRange(),
+					})
+
+					l1Idx++
+					fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+					p2Pos.First = p1Pos.First // a correction to keep pivots aligned (a spec. situation)
+					//log.Print("no-append; fetch row L1 ", l1Pos, " --> ", p1Pos)
+
+				} else {
+					l1Idx++
+					appendRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+					//log.Print("append row L1 ", l1Pos, " --> ", p1Pos)
+				}
 
 			} else {
 				fmt.Println(mapping.Mapping{
@@ -146,19 +142,4 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 		}
 	}
 
-	done := make(chan bool, 2)
-	go func() {
-		sort.Sort(mapping.SortableMapping(mapL1L2))
-		done <- true
-	}()
-	go func() {
-		sort.Sort(mapping.SortableMapping(mapEmptyL2))
-		done <- true
-	}()
-	<-done
-	<-done
-
-	mapping.MergeMappings(mapL1L2, mapEmptyL2, func(item mapping.Mapping) {
-		fmt.Println(item)
-	})
 }
