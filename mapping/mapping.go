@@ -90,6 +90,10 @@ func (m Mapping) String() string {
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
 }
 
+func (m *Mapping) IsEmpty() bool {
+	return m.From.First == -1 && m.To.First == -1
+}
+
 // NewMapping creates a new instance of Mapping.
 // The arguments can be understood as follows:
 // from1,from2[TAB]to1,to2

@@ -122,7 +122,7 @@ func runCompress(filePath string) {
 			panic(fmt.Sprintf("Failed to open file %s", filePath))
 		}
 	}
-	calign.CompressFromFile(file, func(item mapping.Mapping) {
+	calign.CompressFromFile(file, false, func(item mapping.Mapping) {
 		fmt.Println(item)
 	})
 }
@@ -152,7 +152,36 @@ func runTransalign(filePath1 string, filePath2 string) {
 		log.Fatal("FATAL: ", err)
 	}
 	hm2.Load()
-	transalign.Run(hm1, hm2)
+
+	ch1 := make(chan []mapping.Mapping, 5)
+	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
+	go func() {
+		transalign.Run(hm1, hm2, func(item mapping.Mapping) {
+			if !item.IsEmpty() {
+				buff1 = append(buff1, item)
+				if len(buff1) == defaultChanBufferSize {
+					ch1 <- buff1
+					buff1 = make([]mapping.Mapping, 0, defaultChanBufferSize)
+				}
+			}
+		})
+		if len(buff1) > 0 {
+			ch1 <- buff1
+		}
+		close(ch1)
+	}()
+	/*
+		calign.CompressFromChan(ch1, false, func(item mapping.Mapping) {
+			item.IsGap = false
+			fmt.Println(item)
+		})
+	*/
+	for b := range ch1 {
+		for _, item := range b {
+			item.IsGap = false
+			fmt.Println(item)
+		}
+	}
 }
 
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
@@ -206,7 +235,7 @@ func runImport(args calignArgs, noCompress bool) {
 			}
 			close(ch2)
 		}()
-		calign.CompressFromChan(ch2, func(item mapping.Mapping) {
+		calign.CompressFromChan(ch2, true, func(item mapping.Mapping) {
 			fmt.Println(item)
 		})
 	}
@@ -214,6 +243,10 @@ func runImport(args calignArgs, noCompress bool) {
 }
 
 func main() {
+	calign.TestCompressGaps()
+}
+
+func main2() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))

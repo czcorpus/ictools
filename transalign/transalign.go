@@ -1,4 +1,3 @@
-// Copyright 2012 Milos Jakubicek
 // Copyright 2017 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2017 Charles University, Faculty of Arts,
 //                Institute of the Czech National Corpus
@@ -21,7 +20,6 @@
 package transalign
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/czcorpus/ictools/mapping"
@@ -63,7 +61,7 @@ func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRang
 // Run implements an algorith for finding a mapping
 // between L1 and L1 based on two "half mappings"
 // L1 -> LP and L2 -> LP.
-func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
+func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(mapping.Mapping)) {
 	log.Print("INFO: Computing new alignment...")
 
 	log.Print("INFO: Done")
@@ -83,7 +81,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 		//log.Print("CURR >>> ", l1Pos, " --> ", p1Pos, " #### ", l2Pos, " --> ", p2Pos)
 		if p1Pos.First < p2Pos.First { // must align start
 			if p1Pos.Last == -1 {
-				fmt.Println(mapping.Mapping{
+				onItem(mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
@@ -94,7 +92,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 
 		} else if p1Pos.First > p2Pos.First { // must align start
 			if p2Pos.Last == -1 {
-				fmt.Println(mapping.Mapping{
+				onItem(mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -109,7 +107,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 
 				if pivotMapping1.HasGapAtRow(l1Idx) {
 
-					fmt.Println(mapping.Mapping{
+					onItem(mapping.Mapping{
 						From: mapping.NewEmptyPosRange(),
 						To:   l2Pos,
 					})
@@ -128,7 +126,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 			} else if p2Pos.Last > p1Pos.Last {
 				if pivotMapping2.HasGapAtRow(l2Idx) {
 
-					fmt.Println(mapping.Mapping{
+					onItem(mapping.Mapping{
 						From: l1Pos,
 						To:   mapping.NewEmptyPosRange(),
 					})
@@ -145,11 +143,11 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				}
 
 			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
-				fmt.Println(mapping.Mapping{
+				onItem(mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
-				fmt.Println(mapping.Mapping{
+				onItem(mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -160,7 +158,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 
 			} else {
 				if l1Pos.First != -1 || l2Pos.First != -1 {
-					fmt.Println(mapping.Mapping{
+					onItem(mapping.Mapping{
 						From: l1Pos,
 						To:   l2Pos,
 					})
