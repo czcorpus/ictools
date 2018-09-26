@@ -106,9 +106,24 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 		} else {
 
 			if p1Pos.Last > p2Pos.Last {
-				l2Idx++
-				appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
-				//log.Print("append row L2 ", l2Pos, " --> ", p2Pos)
+
+				if pivotMapping1.HasGapAtRow(l1Idx) {
+
+					fmt.Println(mapping.Mapping{
+						From: mapping.NewEmptyPosRange(),
+						To:   l2Pos,
+					})
+
+					l2Idx++
+					fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+					p1Pos.First = p2Pos.First // a correction to keep pivots aligned (a spec. situation)
+					//log.Print("no-append; fetch row L1 ", l1Pos, " --> ", p1Pos)
+
+				} else {
+					l2Idx++
+					appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+					//log.Print("append row L2 ", l2Pos, " --> ", p2Pos)
+				}
 
 			} else if p2Pos.Last > p1Pos.Last {
 				if pivotMapping2.HasGapAtRow(l2Idx) {
@@ -129,6 +144,20 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 					//log.Print("append row L1 ", l1Pos, " --> ", p1Pos)
 				}
 
+			} else if p2Pos.Last == -1 && p1Pos.Last == -1 {
+				fmt.Println(mapping.Mapping{
+					From: l1Pos,
+					To:   mapping.NewEmptyPosRange(),
+				})
+				fmt.Println(mapping.Mapping{
+					From: mapping.NewEmptyPosRange(),
+					To:   l2Pos,
+				})
+				l1Idx++
+				l2Idx++
+				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
 			} else {
 				fmt.Println(mapping.Mapping{
 					From: l1Pos,
@@ -138,6 +167,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				l2Idx++
 				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
 			}
 		}
 	}
