@@ -144,7 +144,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 					//log.Print("append row L1 ", l1Pos, " --> ", p1Pos)
 				}
 
-			} else if p2Pos.Last == -1 && p1Pos.Last == -1 {
+			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
 				fmt.Println(mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
@@ -159,10 +159,12 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
 				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			} else {
-				fmt.Println(mapping.Mapping{
-					From: l1Pos,
-					To:   l2Pos,
-				})
+				if l1Pos.First != -1 || l2Pos.First != -1 {
+					fmt.Println(mapping.Mapping{
+						From: l1Pos,
+						To:   l2Pos,
+					})
+				}
 				l1Idx++
 				l2Idx++
 				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
