@@ -243,10 +243,6 @@ func runImport(args calignArgs, noCompress bool) {
 }
 
 func main() {
-	calign.TestCompressGaps()
-}
-
-func main2() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))

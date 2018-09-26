@@ -21,6 +21,7 @@ package transalign
 
 import (
 	"log"
+	"sort"
 
 	"github.com/czcorpus/ictools/mapping"
 )
@@ -74,6 +75,11 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 	l2Pos := mapping.PosRange{}
 	p2Pos := mapping.PosRange{}
 
+	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size()) // TODO size estimation
+	// we have to keep one of [-1, x], [x, -1] mapping separate
+	// because these two cannot be sorted together in a traditional way
+	mapNoneL2 := make([]mapping.Mapping, 0, pivotMapping1.Size()/10) // 10 is just an estimate
+
 	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
@@ -81,7 +87,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 		//log.Print("CURR >>> ", l1Pos, " --> ", p1Pos, " #### ", l2Pos, " --> ", p2Pos)
 		if p1Pos.First < p2Pos.First { // must align start
 			if p1Pos.Last == -1 {
-				onItem(mapping.Mapping{
+				mapL1L2 = append(mapL1L2, mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
@@ -92,7 +98,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 
 		} else if p1Pos.First > p2Pos.First { // must align start
 			if p2Pos.Last == -1 {
-				onItem(mapping.Mapping{
+				mapNoneL2 = append(mapNoneL2, mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -107,7 +113,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 
 				if pivotMapping1.HasGapAtRow(l1Idx) {
 
-					onItem(mapping.Mapping{
+					mapNoneL2 = append(mapNoneL2, mapping.Mapping{
 						From: mapping.NewEmptyPosRange(),
 						To:   l2Pos,
 					})
@@ -126,7 +132,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			} else if p2Pos.Last > p1Pos.Last {
 				if pivotMapping2.HasGapAtRow(l2Idx) {
 
-					onItem(mapping.Mapping{
+					mapL1L2 = append(mapL1L2, mapping.Mapping{
 						From: l1Pos,
 						To:   mapping.NewEmptyPosRange(),
 					})
@@ -143,11 +149,11 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 				}
 
 			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
-				onItem(mapping.Mapping{
+				mapL1L2 = append(mapL1L2, mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
-				onItem(mapping.Mapping{
+				mapNoneL2 = append(mapNoneL2, mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -158,7 +164,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 
 			} else {
 				if l1Pos.First != -1 || l2Pos.First != -1 {
-					onItem(mapping.Mapping{
+					mapL1L2 = append(mapL1L2, mapping.Mapping{
 						From: l1Pos,
 						To:   l2Pos,
 					})
@@ -171,5 +177,19 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			}
 		}
 	}
+
+	done := make(chan bool, 2)
+	go func() {
+		sort.Sort(mapping.SortableMapping(mapL1L2))
+		done <- true
+	}()
+	go func() {
+		sort.Sort(mapping.SortableMapping(mapNoneL2))
+		done <- true
+	}()
+	<-done
+	<-done
+
+	mapping.MergeMappings(mapL1L2, mapNoneL2, onItem)
 
 }
