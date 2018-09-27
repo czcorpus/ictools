@@ -1,4 +1,4 @@
-# ictools - a program for generating corpora alignments
+# ictools - a program for calculating corpora alignments using a pivot language
 
 This is a faster, less memory-consuming, integrated replacement for legacy *calign.py*,
 *compressrng.py*, *fixgaps.py*, *transalign.py* scripts used to prepare corpora alignment
