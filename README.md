@@ -184,12 +184,14 @@ Used hardware:
 | Setup | Used program    | calign+fixgaps+compress [sec] | transalign [sec] | total [sec]  |
 |-------|-----------------|------------------------------:|-----------------:|-------------:|
 | A     | classic scripts |  255                          | 191              | 446          |
-| A     | ictools         |  **180**                      | **57**           | **237**      |
+| A     | ictools         |  **164**                      | **55**           | **219**      |
 | B     | classic scripts |  312                          | DNF (RAM)        | DNF          |
 | B     | ictools         |  **175**                      | **63**           | **238**      |
 
-In terms of memory usage, there were no thorough measurements performed but according to the *top*
-utility the *transalign* function in *ictools* consumes less than half of the memory compared
-with the classic scripts. The import function (i.e. calign+fixgaps+compress) in both programs
-consumes only a little memory because data read from an input file are (almost) immediately written
+Ictools are approximately **twice as fast** as the original Python scripts.
+
+In terms of **memory usage**, there were no thorough measurements performed but according to the *top*
+utility the *transalign* function in *ictools* consumes about **30-40% of of the memory** consumed
+by the classic scripts. The import function (i.e. calign+fixgaps+compress) in both programs
+consumes only a little RAM because data read from an input file are (almost) immediately written
 to the output without any unnecessary memory allocation.
