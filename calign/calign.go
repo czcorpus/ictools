@@ -168,7 +168,9 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 			return mapping.Mapping{}, err2
 		}
 		p.lastPos = l1.Last
-		p.lastPivotPos = l2.Last
+		if l2.Last > -1 {
+			p.lastPivotPos = l2.Last
+		}
 		return mapping.Mapping{l1, l2, false}, nil
 	}
 	return mapping.Mapping{}, NewIgnorableError("skipping non-alignment line %d", lineNum)
