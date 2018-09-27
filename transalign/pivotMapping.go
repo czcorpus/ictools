@@ -143,5 +143,5 @@ func (hm *PivotMapping) Load() {
 		i = len(hm.ranges) - 1
 		hm.gaps[i] = len(elms) == 3
 	}
-	log.Printf("INFO: Done (%d items).", len(hm.ranges))
+	log.Printf("INFO: ...Done (%d items).", len(hm.ranges))
 }

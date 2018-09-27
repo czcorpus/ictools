@@ -86,7 +86,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
-	for l1Idx < len(pivotMapping1.ranges) && l2Idx < len(pivotMapping2.ranges) {
+	for l1Idx < pivotMapping1.Size() || l2Idx < pivotMapping2.Size() {
 		if p1Pos.First < p2Pos.First { // must align beginning of pivots
 			if p1Pos.Last == -1 {
 				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
@@ -107,7 +107,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			l2Idx++
 			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
-		} else {
+		} else { // pivots start at the same position; now try to align end positions
 			if p1Pos.Last > p2Pos.Last {
 				if pivotMapping1.HasGapAtRow(l1Idx) { // we cannot extend alignment across a gap
 					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
@@ -150,8 +150,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 					To:   l2Pos,
 				})
 				l1Idx++
-				l2Idx++
 				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				l2Idx++
 				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			} else {
@@ -168,15 +168,15 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 					})
 				}
 				l1Idx++
-				l2Idx++
 				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				l2Idx++
 				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			}
 		}
 	}
 
-	log.Print("INFO: Sorting L1-L2 and None->L2 lists...")
+	log.Print("INFO: Sorting L1->L2/None and None->L2 lists...")
 	done := make(chan bool, 2)
 	go func() {
 		sort.Sort(mapping.SortableMapping(mapL1L2))

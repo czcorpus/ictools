@@ -174,6 +174,7 @@ func runTransalign(filePath1 string, filePath2 string) {
 		item.IsGap = false
 		fmt.Println(item)
 	})
+	log.Print("INFO: ...Done")
 }
 
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
@@ -230,7 +231,6 @@ func runImport(args calignArgs, noCompress bool) {
 		calign.CompressFromChan(ch2, true, func(item mapping.Mapping) {
 			fmt.Println(item)
 		})
-		log.Print("...DONE")
 	}
 
 }
