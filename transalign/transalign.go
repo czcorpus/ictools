@@ -59,6 +59,13 @@ func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRang
 	pivotPos.Last = pivot.Last
 }
 
+func addMapping(list []mapping.Mapping, v mapping.Mapping) []mapping.Mapping {
+	if v.From.First != -1 || v.To.First != -1 {
+		return append(list, v)
+	}
+	return list
+}
+
 // Run implements an algorith for finding a mapping
 // between L1 and L1 based on two "half mappings"
 // L1 -> LP and L2 -> LP.
@@ -87,7 +94,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 		//log.Print("CURR >>> ", l1Pos, " --> ", p1Pos, " #### ", l2Pos, " --> ", p2Pos)
 		if p1Pos.First < p2Pos.First { // must align start
 			if p1Pos.Last == -1 {
-				mapL1L2 = append(mapL1L2, mapping.Mapping{
+
+				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
@@ -98,7 +106,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 
 		} else if p1Pos.First > p2Pos.First { // must align start
 			if p2Pos.Last == -1 {
-				mapNoneL2 = append(mapNoneL2, mapping.Mapping{
+				mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -113,7 +121,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 
 				if pivotMapping1.HasGapAtRow(l1Idx) {
 
-					mapNoneL2 = append(mapNoneL2, mapping.Mapping{
+					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 						From: mapping.NewEmptyPosRange(),
 						To:   l2Pos,
 					})
@@ -132,7 +140,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			} else if p2Pos.Last > p1Pos.Last {
 				if pivotMapping2.HasGapAtRow(l2Idx) {
 
-					mapL1L2 = append(mapL1L2, mapping.Mapping{
+					mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
 						From: l1Pos,
 						To:   mapping.NewEmptyPosRange(),
 					})
@@ -149,11 +157,11 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 				}
 
 			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
-				mapL1L2 = append(mapL1L2, mapping.Mapping{
+				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
 				})
-				mapNoneL2 = append(mapNoneL2, mapping.Mapping{
+				mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
 					To:   l2Pos,
 				})
@@ -163,8 +171,14 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			} else {
-				if l1Pos.First != -1 || l2Pos.First != -1 {
-					mapL1L2 = append(mapL1L2, mapping.Mapping{
+				if l1Pos.First != -1 {
+					mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
+						From: l1Pos,
+						To:   l2Pos,
+					})
+
+				} else {
+					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 						From: l1Pos,
 						To:   l2Pos,
 					})

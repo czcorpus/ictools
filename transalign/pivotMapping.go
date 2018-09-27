@@ -128,7 +128,7 @@ func (hm *PivotMapping) Load() {
 	var i int
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
-		// the mapping in the file is (L2 -> L1/pivot)
+		// the mapping in the file is (L1/L2 -> pivot)
 		pivot := strings.Split(elms[1], ",")
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)

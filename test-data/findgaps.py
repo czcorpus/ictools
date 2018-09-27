@@ -61,10 +61,10 @@ class TestAlign(object):
 
 
 if __name__ == '__main__':
-    #with open(sys.argv[1], 'rb') as fr:
-    #    for line in fr:
-    #        process_line(line)
-    c1 = manatee.Corpus('/home/tomas/corpora/registry/intercorp_v11_en')
-    c2 = manatee.Corpus('/home/tomas/corpora/registry/intercorp_v11_pl')
-    t = TestAlign(c1, c2, sys.argv[1])
-    t.run()
+    with open(sys.argv[1], 'rb') as fr:
+        for line in fr:
+            process_line(line)
+    #c1 = manatee.Corpus('/home/tomas/corpora/registry/intercorp_v11_en')
+    #c2 = manatee.Corpus('/home/tomas/corpora/registry/intercorp_v11_pl')
+    #t = TestAlign(c1, c2, sys.argv[1])
+    #t.run()

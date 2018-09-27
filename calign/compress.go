@@ -69,7 +69,6 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, gapsOnly boo
 		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
 		lastItem.To.First = -2
 	}
-	log.Print("adding regular ", item)
 	onItem(*item)
 }
 
