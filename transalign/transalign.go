@@ -26,21 +26,19 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
-func fetchRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) bool {
+// fetchRow sets new language range and pivot range for provided langPos, pivotPos
+// arguments using data on line langIdx
+func fetchRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) {
 	if langIdx >= len(pm.ranges) {
-		return true // TODO !!!
+		return
 	}
 	langPos.First = pm.ranges[langIdx].First
 	langPos.Last = pm.ranges[langIdx].Last
-	pivot, ok := pm.LangToPivot(langIdx)
-	if !ok {
-		// TODO
-	}
-	pivotPos.First = pivot.First
-	pivotPos.Last = pivot.Last
-	return pm.HasGapAtRow(langIdx)
+	pivotPos.First = pm.pivots[langIdx].First
+	pivotPos.Last = pm.pivots[langIdx].Last
 }
 
+// appendRow extends provided langPos, pivotPos using data loaded from line langIdx
 func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) {
 	if langIdx >= len(pm.ranges) {
 		return
@@ -52,13 +50,12 @@ func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRang
 	if pm.ranges[langIdx].Last != -1 {
 		langPos.Last = pm.ranges[langIdx].Last
 	}
-	pivot, ok := pm.LangToPivot(langIdx)
-	if !ok {
-		// TODO
-	}
-	pivotPos.Last = pivot.Last
+	pivotPos.Last = pm.pivots[langIdx].Last
 }
 
+// addMapping is a simple wrapper around 'append' for the mapping
+// pivot mapping slices which deliberately ignores -1 --> -1 mappings
+// the algorithm sometimes produces.
 func addMapping(list []mapping.Mapping, v mapping.Mapping) []mapping.Mapping {
 	if v.From.First != -1 || v.To.First != -1 {
 		return append(list, v)
@@ -72,16 +69,18 @@ func addMapping(list []mapping.Mapping, v mapping.Mapping) []mapping.Mapping {
 func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(mapping.Mapping)) {
 	log.Print("INFO: Computing new alignment...")
 
-	l1Idx := 0
-	l1Pos := mapping.PosRange{}
-	p1Pos := mapping.PosRange{}
-	l2Idx := 0
-	l2Pos := mapping.PosRange{}
-	p2Pos := mapping.PosRange{}
+	l1Idx := 0                  // current line in L1 source
+	l1Pos := mapping.PosRange{} // current L1 range
+	p1Pos := mapping.PosRange{} // current P1 range (pivot for L1)
+	l2Idx := 0                  // current line in L2 source
+	l2Pos := mapping.PosRange{} // current L2 range
+	p2Pos := mapping.PosRange{} // current P2 range (pivot for L2)
 
-	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size()) // TODO size estimation
-	// we have to keep one of [-1, x], [x, -1] mapping separate
-	// because these two cannot be sorted together in a traditional way
+	// We have to create two separate lists for the mappings as
+	// one of the [-1, x], [x, -1] mappings must be kept separate
+	// to be able to sort them. Final merging/sorting is done via
+	// mapping.Iterator.
+	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size())      // TODO size estimation
 	mapNoneL2 := make([]mapping.Mapping, 0, pivotMapping1.Size()/10) // 10 is just an estimate
 
 	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)

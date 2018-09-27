@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/czcorpus/ictools/common"
@@ -31,9 +32,9 @@ import (
 )
 
 const (
-	// a magical constant to estimate the size of
-	// PivotMapping internal data slice
-	fileToCapacityRatio = 9
+	// A magical constant to estimate number of lines
+	// of a PivotMapping based on source file size.
+	fileToCapacityRatio = 14
 )
 
 // PosRangeMap maps data rows to PosRange values
@@ -53,15 +54,15 @@ type PivotMapping struct {
 	// source file reader
 	reader *bufio.Scanner
 
+	// list of lines mapping language ranges to pivot ranges (pivot language).
+	ranges []*mapping.PosRange
+
 	// maps ranges from other language to pivot
-	langToPivot map[int]*mapping.PosRange
+	pivots []*mapping.PosRange
 
 	// gaps identifes all the rows which represent gaps between texts etc.
 	// These rows cannot be used to expand translation range.
 	gaps map[int]bool
-
-	// list of lines mapping language ranges to pivot ranges (pivot language).
-	ranges []*mapping.PosRange
 
 	// estimation of items number for efficient memory pre-allocation
 	itemsEstim int
@@ -76,21 +77,16 @@ func NewPivotMapping(file *os.File) (*PivotMapping, error) {
 		return nil, err
 	}
 	initialCap := fSize / fileToCapacityRatio
+	log.Printf("INFO: pivot mapping size estimation for %s: %d",
+		filepath.Base(file.Name()), initialCap)
 	return &PivotMapping{
-		file:        file,
-		reader:      bufio.NewScanner(file),
-		langToPivot: make(map[int]*mapping.PosRange),
-		itemsEstim:  initialCap,
-		gaps:        make(map[int]bool),
-		ranges:      make([]*mapping.PosRange, 0, initialCap),
+		file:       file,
+		reader:     bufio.NewScanner(file),
+		ranges:     make([]*mapping.PosRange, 0, initialCap),
+		pivots:     make([]*mapping.PosRange, 0, initialCap),
+		itemsEstim: initialCap,
+		gaps:       make(map[int]bool),
 	}, nil
-}
-
-// LangToPivot translates a data line of pivot lang. into a PosRange
-// within the other lang.
-func (hm *PivotMapping) LangToPivot(idx int) (*mapping.PosRange, bool) {
-	ans, ok := hm.langToPivot[idx]
-	return ans, ok
 }
 
 // Size returns number of mapping definitions
@@ -143,8 +139,8 @@ func (hm *PivotMapping) Load() {
 		}
 
 		hm.ranges = append(hm.ranges, &l2Pair)
+		hm.pivots = append(hm.pivots, &pivotPair)
 		i = len(hm.ranges) - 1
-		hm.langToPivot[i] = &pivotPair
 		hm.gaps[i] = len(elms) == 3
 	}
 	log.Printf("INFO: Done (%d items).", len(hm.ranges))
