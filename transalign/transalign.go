@@ -72,9 +72,6 @@ func addMapping(list []mapping.Mapping, v mapping.Mapping) []mapping.Mapping {
 func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(mapping.Mapping)) {
 	log.Print("INFO: Computing new alignment...")
 
-	log.Print("INFO: Done")
-	log.Print("INFO: Generating output...")
-
 	l1Idx := 0
 	l1Pos := mapping.PosRange{}
 	p1Pos := mapping.PosRange{}
@@ -91,10 +88,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 	for l1Idx < len(pivotMapping1.ranges) && l2Idx < len(pivotMapping2.ranges) {
-		//log.Print("CURR >>> ", l1Pos, " --> ", p1Pos, " #### ", l2Pos, " --> ", p2Pos)
-		if p1Pos.First < p2Pos.First { // must align start
+		if p1Pos.First < p2Pos.First { // must align beginning of pivots
 			if p1Pos.Last == -1 {
-
 				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
 					From: l1Pos,
 					To:   mapping.NewEmptyPosRange(),
@@ -102,9 +97,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			}
 			l1Idx++
 			fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
-			//log.Print("aligning L1 by fetching ", l1Pos, " --> ", p1Pos)
 
-		} else if p1Pos.First > p2Pos.First { // must align start
+		} else if p1Pos.First > p2Pos.First { // must align beginning of pivots
 			if p2Pos.Last == -1 {
 				mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 					From: mapping.NewEmptyPosRange(),
@@ -113,47 +107,38 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 			}
 			l2Idx++
 			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
-			//log.Print("aligning L2 by fetching ", l2Pos, " --> ", p2Pos)
 
 		} else {
-
 			if p1Pos.Last > p2Pos.Last {
-
-				if pivotMapping1.HasGapAtRow(l1Idx) {
-
+				if pivotMapping1.HasGapAtRow(l1Idx) { // we cannot extend alignment across a gap
 					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
 						From: mapping.NewEmptyPosRange(),
 						To:   l2Pos,
 					})
-
 					l2Idx++
 					fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
-					p1Pos.First = p2Pos.First // a correction to keep pivots aligned (a spec. situation)
-					//log.Print("no-append; fetch row L1 ", l1Pos, " --> ", p1Pos)
+					// a correction to keep pivots aligned (a spec. situation)
+					// but we're losing compression here (TODO improve)
+					p1Pos.First = p2Pos.First
 
 				} else {
 					l2Idx++
 					appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
-					//log.Print("append row L2 ", l2Pos, " --> ", p2Pos)
 				}
 
 			} else if p2Pos.Last > p1Pos.Last {
 				if pivotMapping2.HasGapAtRow(l2Idx) {
-
 					mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
 						From: l1Pos,
 						To:   mapping.NewEmptyPosRange(),
 					})
-
 					l1Idx++
 					fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 					p2Pos.First = p1Pos.First // a correction to keep pivots aligned (a spec. situation)
-					//log.Print("no-append; fetch row L1 ", l1Pos, " --> ", p1Pos)
 
 				} else {
 					l1Idx++
 					appendRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
-					//log.Print("append row L1 ", l1Pos, " --> ", p1Pos)
 				}
 
 			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
@@ -192,6 +177,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 		}
 	}
 
+	log.Print("INFO: Sorting L1-L2 and None->L2 lists...")
 	done := make(chan bool, 2)
 	go func() {
 		sort.Sort(mapping.SortableMapping(mapL1L2))
@@ -203,6 +189,8 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 	}()
 	<-done
 	<-done
+
+	log.Print("INFO: Compressing and generating output...")
 
 	mapping.MergeMappings(mapL1L2, mapNoneL2, onItem)
 

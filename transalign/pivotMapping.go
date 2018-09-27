@@ -93,22 +93,24 @@ func (hm *PivotMapping) LangToPivot(idx int) (*mapping.PosRange, bool) {
 	return ans, ok
 }
 
-// Name returns a name of a source data file
-func (hm *PivotMapping) Name() string {
-	return hm.file.Name()
-}
-
+// Size returns number of mapping definitions
+// (= number of lines in a respective source file)
 func (hm *PivotMapping) Size() int {
 	return len(hm.ranges)
 }
 
+// HasGapAtRow tests whether the mapping [-1 -> X]
+// or [X -> -1] (typically only the former variant
+// should be present as we expect pivot to be superset
+// of all the other language stuff) is due to a
+// missing text/package etc.
+// Because there is an important distinction here.
+// In non-gap cases the transalign algorithm is allowed
+// to extend the alignment across such an empty
+// alignment if pivot's range includes one or more
+// languages in the "left" language.
 func (hm *PivotMapping) HasGapAtRow(idx int) bool {
 	return hm.gaps[idx]
-}
-
-func (hm *PivotMapping) addMapping(langPair *mapping.PosRange) int {
-	hm.ranges = append(hm.ranges, langPair)
-	return len(hm.ranges) - 1
 }
 
 func (hm *PivotMapping) slicePivot(rightLimit int) {
@@ -128,7 +130,7 @@ func (hm *PivotMapping) Load() {
 	var i int
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
-		// the mapping in the file is (L1/L2 -> pivot)
+		// the mapping in the file is (SOME_LANG -> PIVOT_LANG)
 		pivot := strings.Split(elms[1], ",")
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)
@@ -139,7 +141,9 @@ func (hm *PivotMapping) Load() {
 		if err2 != nil {
 			log.Printf("ERROR: Failed to parse other lang on line %d: %s", i, err2)
 		}
-		i = hm.addMapping(&l2Pair)
+
+		hm.ranges = append(hm.ranges, &l2Pair)
+		i = len(hm.ranges) - 1
 		hm.langToPivot[i] = &pivotPair
 		hm.gaps[i] = len(elms) == 3
 	}
