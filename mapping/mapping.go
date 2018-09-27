@@ -21,7 +21,6 @@ package mapping
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/czcorpus/ictools/common"
@@ -205,6 +204,4 @@ func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(it
 			iterL2L3.Next()
 		}
 	}
-
-	log.Print("INFO: Done.")
 }
