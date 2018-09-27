@@ -17,29 +17,17 @@
 
 package mapping
 
-// ProcPosition stores information about last position
-// in both language columns. For columns of format
-// L1,L2[tab]R1,R2, L2, R2 is always stored once the
-// line is processed. This information must be shared
-// between all used iterators as each contains only
-// a partial information about whole data.
-type ProcPosition struct {
-	Left  int
-	Right int
-}
-
 // Iterator is used when merging two sorted mappings together.
 // It provides a way how to apply a function to each item rather
 // than exposing the item.
 type Iterator struct {
 	mapping  []Mapping
 	currIdx  int
-	pos      *ProcPosition
 	finished bool
 }
 
 // NewIterator creates a new Iterator instance
-func NewIterator(data []Mapping, pos *ProcPosition) Iterator {
+func NewIterator(data []Mapping) Iterator {
 	finished := false
 	if len(data) == 0 {
 		finished = true
@@ -47,7 +35,6 @@ func NewIterator(data []Mapping, pos *ProcPosition) Iterator {
 	return Iterator{
 		mapping:  data,
 		currIdx:  0,
-		pos:      pos,
 		finished: finished,
 	}
 }
@@ -55,14 +42,8 @@ func NewIterator(data []Mapping, pos *ProcPosition) Iterator {
 // Apply calls a provided function with the current
 // item as its argument. After the method is called,
 // a possible "finished" state is .
-func (m *Iterator) Apply(onItem func(item Mapping, pos *ProcPosition)) {
-	onItem(m.mapping[m.currIdx], m.pos)
-	if m.mapping[m.currIdx].From.First != -1 {
-		m.pos.Left = m.mapping[m.currIdx].From.Last
-	}
-	if m.mapping[m.currIdx].To.First != -1 {
-		m.pos.Right = m.mapping[m.currIdx].To.Last
-	}
+func (m *Iterator) Apply(onItem func(item Mapping)) {
+	onItem(m.mapping[m.currIdx])
 	if m.currIdx == len(m.mapping)-1 {
 		m.finished = true
 	}

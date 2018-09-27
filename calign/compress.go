@@ -29,18 +29,18 @@ import (
 func mkMapping(beg int, end int, rightEmpty bool) mapping.Mapping {
 	if beg == end {
 		if rightEmpty {
-			return mapping.NewMapping(beg, beg, -1, -1)
+			return mapping.NewGapMapping(beg, beg, -1, -1)
 		}
-		return mapping.NewMapping(-1, -1, beg, beg)
+		return mapping.NewGapMapping(-1, -1, beg, beg)
 	}
 	if rightEmpty {
-		return mapping.NewMapping(beg, end, -1, -1)
+		return mapping.NewGapMapping(beg, end, -1, -1)
 	}
-	return mapping.NewMapping(-1, -1, beg, end)
+	return mapping.NewGapMapping(-1, -1, beg, end)
 }
 
-func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(item mapping.Mapping)) {
-	if item.To.First == -1 {
+func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, gapsOnly bool, onItem func(item mapping.Mapping)) {
+	if item.To.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
 		if lastItem.From.First == -2 {
 			lastItem.From.First = item.From.First
 			lastItem.From.Last = item.From.Last
@@ -55,7 +55,7 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(
 		lastItem.From.First = -2
 	}
 
-	if item.From.First == -1 {
+	if item.From.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
 		if lastItem.To.First == -2 {
 			lastItem.To.First = item.To.First
 			lastItem.To.Last = item.To.Last
@@ -76,12 +76,12 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, onItem func(
 // to a single line with proper range (e.g. "-1   am,an" where 'am' is the
 // beginning of the first line in the series and 'an' is the end of the last
 // line in the series.
-func CompressFromChan(ch chan []mapping.Mapping, onItem func(item mapping.Mapping)) {
-	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+func CompressFromChan(ch chan []mapping.Mapping, gapsOnly bool, onItem func(mapping.Mapping)) {
+	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for buff := range ch {
 		for _, item := range buff {
-			compressStep(&item, &lastItem, onItem)
+			compressStep(&item, &lastItem, gapsOnly, onItem)
 		}
 	}
 
@@ -95,14 +95,14 @@ func CompressFromChan(ch chan []mapping.Mapping, onItem func(item mapping.Mappin
 
 // CompressFromFile runs in the same way as CompressFromChan except that
 // the data source is a file in this case.
-func CompressFromFile(file *os.File, onItem func(item mapping.Mapping)) {
+func CompressFromFile(file *os.File, gapsOnly bool, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
-	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
 		if err == nil {
-			compressStep(&item, &lastItem, onItem)
+			compressStep(&item, &lastItem, gapsOnly, onItem)
 
 		} else {
 			log.Printf("ERROR: Failed to process line %d: %s", i, err)

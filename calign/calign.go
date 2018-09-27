@@ -169,7 +169,7 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 		}
 		p.lastPos = l1.Last
 		p.lastPivotPos = l2.Last
-		return mapping.Mapping{l1, l2}, nil
+		return mapping.Mapping{l1, l2, false}, nil
 	}
 	return mapping.Mapping{}, NewIgnorableError("skipping non-alignment line %d", lineNum)
 }
@@ -207,6 +207,7 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 				First: p.lastPivotPos + 1,
 				Last:  p.pivotStructSize - 1,
 			},
+			IsGap: true,
 		})
 	}
 	err := reader.Err()

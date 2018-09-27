@@ -46,7 +46,6 @@ type PosRangeMap map[int]mapping.PosRange
 // that each data row with range r1, r2 (r2 > r1)
 // is stored as r1, r1+1, ..., r2-1, r2 (but each
 // line still knows the original range it belongs to)
-
 type PivotMapping struct {
 	// source file
 	file *os.File
@@ -54,20 +53,18 @@ type PivotMapping struct {
 	// source file reader
 	reader *bufio.Scanner
 
-	// maps ranges from pivot to the other language
-	pivotToLang map[int]*mapping.PosRange
+	// maps ranges from other language to pivot
+	langToPivot map[int]*mapping.PosRange
 
-	// pivot maps indices (= data rows) to position ranges (pivot language).
-	// PosRange with To > From is cloned across all lines it describes.
-	// e.g. PosRange{3, 5} will exist in three instances on lines 3, 4 and 5.
-	pivot []*mapping.PosRange
+	// gaps identifes all the rows which represent gaps between texts etc.
+	// These rows cannot be used to expand translation range.
+	gaps map[int]bool
+
+	// list of lines mapping language ranges to pivot ranges (pivot language).
+	ranges []*mapping.PosRange
 
 	// estimation of items number for efficient memory pre-allocation
 	itemsEstim int
-
-	minIdx int
-
-	maxPartVal int
 }
 
 // NewPivotMapping creates a new instance of PivotMapping
@@ -82,87 +79,59 @@ func NewPivotMapping(file *os.File) (*PivotMapping, error) {
 	return &PivotMapping{
 		file:        file,
 		reader:      bufio.NewScanner(file),
-		pivotToLang: make(map[int]*mapping.PosRange),
+		langToPivot: make(map[int]*mapping.PosRange),
 		itemsEstim:  initialCap,
-		pivot:       make([]*mapping.PosRange, initialCap),
-		minIdx:      0,
+		gaps:        make(map[int]bool),
+		ranges:      make([]*mapping.PosRange, 0, initialCap),
 	}, nil
 }
 
-// PivotSize returns number of data lines in pivot language
-func (hm *PivotMapping) PivotSize() int {
-	return len(hm.pivot)
-}
-
-// GetPivotRange returns a range located on a specified data line
-func (hm *PivotMapping) GetPivotRange(idx int) *mapping.PosRange {
-	return hm.pivot[hm.index(idx)]
-}
-
-// SetPivotRange sets a range for a specified line
-func (hm *PivotMapping) SetPivotRange(idx int, v *mapping.PosRange) {
-	hm.pivot[hm.index(idx)] = v
-}
-
-// HasPivotRange tests whether there is a data line
-// containing a PosRange.
-func (hm *PivotMapping) HasPivotRange(idx int) bool {
-	i := hm.index(idx)
-	return idx >= hm.minIdx && i < len(hm.pivot) && hm.pivot[i] != nil
-}
-
-// PivotToLang translates a data line of pivot lang. into a PosRange
+// LangToPivot translates a data line of pivot lang. into a PosRange
 // within the other lang.
-func (hm *PivotMapping) PivotToLang(idx int) (*mapping.PosRange, bool) {
-	ans, ok := hm.pivotToLang[idx]
+func (hm *PivotMapping) LangToPivot(idx int) (*mapping.PosRange, bool) {
+	ans, ok := hm.langToPivot[idx]
 	return ans, ok
 }
 
-// Name returns a name of a source data file
-func (hm *PivotMapping) Name() string {
-	return hm.file.Name()
+// Size returns number of mapping definitions
+// (= number of lines in a respective source file)
+func (hm *PivotMapping) Size() int {
+	return len(hm.ranges)
 }
 
-func (hm *PivotMapping) index(i int) int {
-	return i - hm.minIdx
-}
-
-func (hm *PivotMapping) deindex(i int) int {
-	return i + hm.minIdx
-}
-
-func (hm *PivotMapping) setMapping(part int, pivotPair *mapping.PosRange) {
-	if hm.index(part) < len(hm.pivot) {
-		hm.pivot[hm.index(part)] = pivotPair
-
-	} else {
-		panic(fmt.Sprintf("Failed to index PosRange within pivot (pivot len: %d, idx: %d)",
-			len(hm.pivot), hm.index(part)))
-	}
+// HasGapAtRow tests whether the mapping [-1 -> X]
+// or [X -> -1] (typically only the former variant
+// should be present as we expect pivot to be superset
+// of all the other language stuff) is due to a
+// missing text/package etc.
+// Because there is an important distinction here.
+// In non-gap cases the transalign algorithm is allowed
+// to extend the alignment across such an empty
+// alignment if pivot's range includes one or more
+// languages in the "left" language.
+func (hm *PivotMapping) HasGapAtRow(idx int) bool {
+	return hm.gaps[idx]
 }
 
 func (hm *PivotMapping) slicePivot(rightLimit int) {
-	if hm.index(rightLimit) <= len(hm.pivot) {
-		hm.pivot = hm.pivot[:hm.index(rightLimit)]
+	if rightLimit <= len(hm.ranges) {
+		hm.ranges = hm.ranges[:rightLimit]
 
 	} else {
-		panic(fmt.Sprintf("Failed to slice pivot (pivot cap: %d, len: %d, idx: %d)",
-			cap(hm.pivot), len(hm.pivot), hm.index(rightLimit)))
+		panic(fmt.Sprintf("Failed to slice ranges (pivot cap: %d, len: %d, idx: %d)",
+			cap(hm.ranges), len(hm.ranges), rightLimit))
 	}
 }
 
 // Load loads the respective data from a predefined file.
 func (hm *PivotMapping) Load() {
-	var part int
+
 	log.Printf("INFO: Loading %s ...", hm.file.Name())
-	i := 0
+	var i int
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
-		// the mapping in the file is (L2 -> L1/pivot)
+		// the mapping in the file is (SOME_LANG -> PIVOT_LANG)
 		pivot := strings.Split(elms[1], ",")
-		if pivot[0] == "-1" {
-			continue
-		}
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)
 		if err1 != nil {
@@ -172,22 +141,11 @@ func (hm *PivotMapping) Load() {
 		if err2 != nil {
 			log.Printf("ERROR: Failed to parse other lang on line %d: %s", i, err2)
 		}
-		if i == 0 {
-			hm.minIdx = pivotPair.First
-		}
-		for part = pivotPair.First; part <= pivotPair.Last; part++ {
-			hm.pivotToLang[part] = &l2Pair
-			if hm.index(part) >= len(hm.pivot) {
-				hm.pivot = append(hm.pivot, make([]*mapping.PosRange, hm.index(part)-len(hm.pivot)+1)...)
-			}
-			hm.setMapping(part, &pivotPair)
-		}
-		if part > hm.maxPartVal {
-			hm.maxPartVal = part
-		}
-		i++
+
+		hm.ranges = append(hm.ranges, &l2Pair)
+		i = len(hm.ranges) - 1
+		hm.langToPivot[i] = &pivotPair
+		hm.gaps[i] = len(elms) == 3
 	}
-	// here hm.maxPartVal is already [max index]+1 (thank to the 'part' in the for cycle above)
-	hm.slicePivot(hm.maxPartVal)
-	log.Printf("INFO: Done (%d items).", len(hm.pivot))
+	log.Printf("INFO: Done (%d items).", len(hm.ranges))
 }

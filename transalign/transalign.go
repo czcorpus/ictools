@@ -1,4 +1,3 @@
-// Copyright 2012 Milos Jakubicek
 // Copyright 2017 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2017 Charles University, Faculty of Arts,
 //                Institute of the Czech National Corpus
@@ -21,195 +20,178 @@
 package transalign
 
 import (
-	"fmt"
 	"log"
 	"sort"
 
 	"github.com/czcorpus/ictools/mapping"
 )
 
-// ---------------------------
-
-// skipEmpty searches for a valid non-empty (!= -1) non-pivot language
-//  range corresponding matching to provided pivot range [idx, final]
-// (or [final, idx] with step -1).
-//
-// The function returns both non-pivot lang. range and matching pivot range
-// (which may have different 'final' value).
-// The latter value is used to detect empty intersections.
-func skipEmpty(idx int, final int, hMapping *PivotMapping) (int, int) {
-	var step int
-
-	if idx < final {
-		step = 1
-
-	} else {
-		step = -1
+func fetchRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) bool {
+	if langIdx >= len(pm.ranges) {
+		return true // TODO !!!
 	}
-	val := -1
-
-	for idx != final && val == -1 {
-		tmp, ok := hMapping.PivotToLang(idx)
-		if ok {
-			if idx < final {
-				val = tmp.First
-
-			} else {
-				val = tmp.Last
-			}
-		}
-		idx += step
+	langPos.First = pm.ranges[langIdx].First
+	langPos.Last = pm.ranges[langIdx].Last
+	pivot, ok := pm.LangToPivot(langIdx)
+	if !ok {
+		// TODO
 	}
-	return val, idx - step
+	pivotPos.First = pivot.First
+	pivotPos.Last = pivot.Last
+	return pm.HasGapAtRow(langIdx)
 }
 
-// expandToAlign checks and extends limit (if necessary)
-// of range r1 to include r2. Status whether the bounds
-// have been changed is returned.
-func expandToAlign(r1 *mapping.PosRange, r2 *mapping.PosRange) bool {
-	changed := false
+func appendRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) {
+	if langIdx >= len(pm.ranges) {
+		return
+	}
+	if langPos.First == -1 {
+		langPos.First = pm.ranges[langIdx].First
+	}
 
-	if r2.First < r1.First {
-		r1.First = r2.First
-		changed = true
+	if pm.ranges[langIdx].Last != -1 {
+		langPos.Last = pm.ranges[langIdx].Last
 	}
-	if r2.Last > r1.Last {
-		r1.Last = r2.Last
-		changed = true
+	pivot, ok := pm.LangToPivot(langIdx)
+	if !ok {
+		// TODO
 	}
-	return changed
+	pivotPos.Last = pivot.Last
+}
+
+func addMapping(list []mapping.Mapping, v mapping.Mapping) []mapping.Mapping {
+	if v.From.First != -1 || v.To.First != -1 {
+		return append(list, v)
+	}
+	return list
 }
 
 // Run implements an algorith for finding a mapping
-// between L2 and L3 based on two "half mappings"
-// L1 -> L2 and L1 -> L3.
-func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping) {
-	next := 0
-	mapL2L3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()) // TODO size estimation
-	// we have to keep one of [-1, x], [x, -1] mapping separate
-	// because these two cannot be sorted together in a traditional way
-	mapEmptyL3 := make([]mapping.Mapping, 0, pivotMapping1.PivotSize()/10) // 10 is just an estimate
+// between L1 and L1 based on two "half mappings"
+// L1 -> LP and L2 -> LP.
+func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(mapping.Mapping)) {
 	log.Print("INFO: Computing new alignment...")
 
-	var i int
-	var extRng *mapping.PosRange
+	l1Idx := 0
+	l1Pos := mapping.PosRange{}
+	p1Pos := mapping.PosRange{}
+	l2Idx := 0
+	l2Pos := mapping.PosRange{}
+	p2Pos := mapping.PosRange{}
 
-	for ix, rng := range pivotMapping1.pivot {
-		i = pivotMapping1.deindex(ix)
+	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size()) // TODO size estimation
+	// we have to keep one of [-1, x], [x, -1] mapping separate
+	// because these two cannot be sorted together in a traditional way
+	mapNoneL2 := make([]mapping.Mapping, 0, pivotMapping1.Size()/10) // 10 is just an estimate
 
-		if i < next || rng == nil {
-			continue
-		}
-		extRng = &mapping.PosRange{
-			First: rng.First,
-			Last:  rng.Last,
-		}
+	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
-		changed := true
-		for changed {
-			changed = false
-			if pivotMapping2.HasPivotRange(extRng.First) {
-				changed = expandToAlign(extRng, pivotMapping2.GetPivotRange(extRng.First))
+	for l1Idx < len(pivotMapping1.ranges) && l2Idx < len(pivotMapping2.ranges) {
+		if p1Pos.First < p2Pos.First { // must align beginning of pivots
+			if p1Pos.Last == -1 {
+				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
+					From: l1Pos,
+					To:   mapping.NewEmptyPosRange(),
+				})
 			}
-			if pivotMapping2.HasPivotRange(extRng.Last) {
-				lChanged := expandToAlign(extRng, pivotMapping2.GetPivotRange(extRng.Last))
-				changed = changed || lChanged
+			l1Idx++
+			fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+
+		} else if p1Pos.First > p2Pos.First { // must align beginning of pivots
+			if p2Pos.Last == -1 {
+				mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
+					From: mapping.NewEmptyPosRange(),
+					To:   l2Pos,
+				})
 			}
-
-			if changed {
-				changed = false
-				if pivotMapping1.HasPivotRange(extRng.First) {
-					changed = expandToAlign(extRng, pivotMapping1.GetPivotRange(extRng.First))
-				}
-				if pivotMapping1.HasPivotRange(extRng.Last) {
-					lChanged := expandToAlign(extRng, pivotMapping1.GetPivotRange(extRng.Last))
-					changed = changed || lChanged
-				}
-			}
-		}
-
-		next = extRng.Last + 1
-		l2f, i2f := skipEmpty(extRng.First, extRng.Last+1, pivotMapping1)
-		l2l, i2l := skipEmpty(extRng.Last, extRng.First-1, pivotMapping1)
-		l3f, i3f := skipEmpty(extRng.First, extRng.Last+1, pivotMapping2)
-		l3l, i3l := skipEmpty(extRng.Last, extRng.First-1, pivotMapping2)
-		l2 := mapping.PosRange{First: l2f, Last: l2l}
-		l3 := mapping.PosRange{First: l3f, Last: l3l}
-
-		if l2.First == -1 && l3.First == -1 { // nothing to export (-1 to -1)
-			continue
+			l2Idx++
+			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 		} else {
+			if p1Pos.Last > p2Pos.Last {
+				if pivotMapping1.HasGapAtRow(l1Idx) { // we cannot extend alignment across a gap
+					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
+						From: mapping.NewEmptyPosRange(),
+						To:   l2Pos,
+					})
+					l2Idx++
+					fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+					// a correction to keep pivots aligned (a spec. situation)
+					// but we're losing compression here (TODO improve)
+					p1Pos.First = p2Pos.First
 
-			// empty intersection (expansion got too wide through empty mappings)
-			if (i3f > i2l || i3l < i2f) && l3f != -1 && l2f != -1 {
-				l3.First = -1
-				l3.Last = -1
-			}
+				} else {
+					l2Idx++
+					appendRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+				}
 
-			if l2.First == -1 && l3.First != -1 {
-				mapEmptyL3 = append(mapEmptyL3, mapping.Mapping{From: l2, To: l3})
+			} else if p2Pos.Last > p1Pos.Last {
+				if pivotMapping2.HasGapAtRow(l2Idx) {
+					mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
+						From: l1Pos,
+						To:   mapping.NewEmptyPosRange(),
+					})
+					l1Idx++
+					fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+					p2Pos.First = p1Pos.First // a correction to keep pivots aligned (a spec. situation)
+
+				} else {
+					l1Idx++
+					appendRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				}
+
+			} else if p1Pos.Last == -1 && p2Pos.Last == -1 {
+				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
+					From: l1Pos,
+					To:   mapping.NewEmptyPosRange(),
+				})
+				mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
+					From: mapping.NewEmptyPosRange(),
+					To:   l2Pos,
+				})
+				l1Idx++
+				l2Idx++
+				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			} else {
-				mapL2L3 = append(mapL2L3, mapping.Mapping{From: l2, To: l3})
+				if l1Pos.First != -1 {
+					mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
+						From: l1Pos,
+						To:   l2Pos,
+					})
+
+				} else {
+					mapNoneL2 = addMapping(mapNoneL2, mapping.Mapping{
+						From: l1Pos,
+						To:   l2Pos,
+					})
+				}
+				l1Idx++
+				l2Idx++
+				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+
 			}
 		}
 	}
-	log.Print("INFO: Done")
-	log.Print("INFO: Generating output...")
 
+	log.Print("INFO: Sorting L1-L2 and None->L2 lists...")
 	done := make(chan bool, 2)
 	go func() {
-		sort.Sort(mapping.SortableMapping(mapL2L3))
+		sort.Sort(mapping.SortableMapping(mapL1L2))
 		done <- true
 	}()
 	go func() {
-		sort.Sort(mapping.SortableMapping(mapEmptyL3))
+		sort.Sort(mapping.SortableMapping(mapNoneL2))
 		done <- true
 	}()
 	<-done
 	<-done
 
-	mapping.MergeMappings(mapL2L3, mapEmptyL3, func(item mapping.Mapping, pos *mapping.ProcPosition) {
-		if pos.Left == -1 && item.From.First > 0 {
-			fmt.Println(mapping.Mapping{
-				From: mapping.PosRange{
-					First: 0,
-					Last:  item.From.First - 1,
-				},
-				To: mapping.NewEmptyPosRange(),
-			})
-			pos.Left = item.From.First - 1
+	log.Print("INFO: Compressing and generating output...")
 
-		} else if pos.Right == -1 && item.To.First > 0 {
-			fmt.Println(mapping.Mapping{
-				From: mapping.NewEmptyPosRange(),
-				To: mapping.PosRange{
-					First: 0,
-					Last:  item.To.First - 1,
-				},
-			})
-			pos.Right = item.To.First - 1
+	mapping.MergeMappings(mapL1L2, mapNoneL2, onItem)
 
-		}
-		if item.From.First > pos.Left+1 {
-			fmt.Println(mapping.Mapping{
-				From: mapping.PosRange{
-					First: pos.Left + 1,
-					Last:  item.From.First - 1,
-				},
-				To: mapping.NewEmptyPosRange(),
-			})
-		}
-		if item.To.First > pos.Right+1 {
-			fmt.Println(mapping.Mapping{
-				From: mapping.NewEmptyPosRange(),
-				To: mapping.PosRange{
-					First: pos.Right + 1,
-					Last:  item.To.First - 1,
-				},
-			})
-		}
-		fmt.Println(item)
-	})
 }

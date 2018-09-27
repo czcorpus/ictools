@@ -50,11 +50,11 @@ func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mappin
 		}
 		for item.From.First > lastL1+1 {
 			lastL1++
-			onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
+			onItem(mapping.NewGapMapping(lastL1, lastL1, -1, -1))
 		}
 		for item.To.First > lastL2+1 {
 			lastL2++
-			onItem(mapping.NewMapping(-1, -1, lastL2, lastL2))
+			onItem(mapping.NewGapMapping(-1, -1, lastL2, lastL2))
 		}
 		if item.From.Last != -1 {
 			lastL1 = item.From.Last
@@ -83,11 +83,11 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item ma
 			}
 			for item.From.First > lastL1+1 {
 				lastL1++
-				onItem(mapping.NewMapping(lastL1, lastL1, -1, -1))
+				onItem(mapping.NewGapMapping(lastL1, lastL1, -1, -1))
 			}
 			for item.To.First > lastL2+1 {
 				lastL2++
-				onItem(mapping.NewMapping(-1, -1, lastL2, lastL2))
+				onItem(mapping.NewGapMapping(-1, -1, lastL2, lastL2))
 			}
 			if item.From.Last != -1 {
 				lastL1 = item.From.Last

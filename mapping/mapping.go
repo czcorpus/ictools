@@ -78,12 +78,20 @@ func NewEmptyPosRange() PosRange {
 // These mappings are in general M:N
 // (which is why we use PosRange internally here)
 type Mapping struct {
-	From PosRange
-	To   PosRange
+	From  PosRange
+	To    PosRange
+	IsGap bool
 }
 
 func (m Mapping) String() string {
+	if m.IsGap {
+		return fmt.Sprintf("%s\t%s\tg", m.From, m.To)
+	}
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
+}
+
+func (m *Mapping) IsEmpty() bool {
+	return m.From.First == -1 && m.To.First == -1
 }
 
 // NewMapping creates a new instance of Mapping.
@@ -93,6 +101,19 @@ func NewMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
 	return Mapping{
 		PosRange{from1, from2},
 		PosRange{to1, to2},
+		false,
+	}
+}
+
+// NewGapMapping creates a new instance of Mapping
+// with isGap set to true.
+// The arguments can be understood as follows:
+// from1,from2[TAB]to1,to2
+func NewGapMapping(from1 int, from2 int, to1 int, to2 int) Mapping {
+	return Mapping{
+		PosRange{from1, from2},
+		PosRange{to1, to2},
+		true,
 	}
 }
 
@@ -114,7 +135,7 @@ func NewMappingFromString(src string) (Mapping, error) {
 	if err2 != nil {
 		return Mapping{}, err2
 	}
-	return Mapping{r1, r2}, nil
+	return Mapping{r1, r2, len(items) == 3}, nil
 }
 
 // ----------------------------------------------
@@ -170,10 +191,9 @@ func (sm SortableMapping) Less(i, j int) bool {
 // of the function provides last position for each language column.
 // This can be used to test (and resolve) possible gaps between
 // items (e.g. Manatee *mkalign* does not like them).
-func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping, pos *ProcPosition)) {
-	procPos := &ProcPosition{Left: -1, Right: -1}
-	iterL2L3 := NewIterator(mainMapping, procPos)
-	iterL3 := NewIterator(mapFromEmpty, procPos)
+func MergeMappings(mainMapping []Mapping, mapFromEmpty []Mapping, onItem func(item Mapping)) {
+	iterL2L3 := NewIterator(mainMapping)
+	iterL3 := NewIterator(mapFromEmpty)
 
 	for iterL2L3.Unfinished() || iterL3.Unfinished() {
 		if iterL3.HasPriorityOver(&iterL2L3) || !iterL2L3.Unfinished() {
