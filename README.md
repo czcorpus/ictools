@@ -195,3 +195,33 @@ utility the *transalign* function in *ictools* consumes about **30-40% of of the
 by the classic scripts. The import function (i.e. calign+fixgaps+compress) in both programs
 consumes only a little RAM because data read from an input file are (almost) immediately written
 to the output without any unnecessary memory allocation.
+
+## For developers
+
+### Running tests
+
+Try to use `./build` script first to find out environment variables the script generated and then use
+them:
+
+```
+CGO_LDFLAGS="-lmanatee -L/usr/local/lib" CGO_CPPFLAGS="-I/tmp/manatee-open-2.158.8" go test ./...
+```
+
+### Setting up VSCode debugging/testing environment
+
+Open *debug* environment (left column) and click the "gear" button to edit *launch.json*. Then
+set proper environment variables (just like in the previous paragraph).
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // parts are omitted here
+      "env": {
+          "CGO_LDFLAGS": "-lmanatee -L/usr/local/lib",
+          "CGO_CPPFLAGS": "-I/tmp/manatee-open-2.158.8"
+      }
+    }
+  ]
+}
