@@ -88,7 +88,7 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 
 func runCalign(args calignArgs) {
 	file, processor := prepareCalign(args)
-	processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
+	processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping, i int) {
 		fmt.Println(item)
 	})
 }
@@ -185,7 +185,7 @@ func runImport(args calignArgs, noCompress bool) {
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
 	go func() {
-		err := processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping) {
+		err := processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping, i int) {
 			buff1 = append(buff1, item)
 			if len(buff1) == defaultChanBufferSize {
 				ch1 <- buff1

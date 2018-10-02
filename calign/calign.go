@@ -30,61 +30,40 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/mapping"
 )
 
-// IgnorableError is represents an error
-// in parsing which does not affect resulting
-// data - e.g. additional tags in source file
-type IgnorableError struct {
-	message string
+const (
+	quoteStyleSingle = 1
+	quoteStyleDouble = 2
+)
+
+// AttribMapper is a general type allowing transformation
+// from a string value of a structural attribute
+// (e.g. "cs:Adams-Holisticka_det_k:0:8:1") to a numeric
+// form representing structure position in Manatee index.
+type AttribMapper interface {
+	Str2ID(value string) int
 }
-
-func (err IgnorableError) Error() string {
-	return err.message
-}
-
-// NewIgnorableError creates a new IngorableError instance
-// with formatted string (just like fmt.Errorf creates error).
-func NewIgnorableError(msg string, args ...interface{}) IgnorableError {
-	return IgnorableError{message: fmt.Sprintf(msg, args...)}
-}
-
-// -------------------------
-
-type FileImportError struct {
-	line    int
-	message string
-}
-
-func (err FileImportError) Error() string {
-	return fmt.Sprintf("%s (line: %d)", err.message, err.line)
-}
-
-func NewFileImportError(err error, line int) FileImportError {
-	return FileImportError{message: err.Error(), line: line}
-}
-
-// -------------------------
 
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
-	attr1           attrib.GoPosAttr
-	attr2           attrib.GoPosAttr
+	attr1           AttribMapper
+	attr2           AttribMapper
 	valPrefix       string
 	valSuffix       string
+	valOffset       int
 	lastPos         int
 	lastPivotPos    int
 	pivotStructSize int
 }
 
 // NewProcessor creates a new instance of Processor
-func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, pivotSize int, quoteStyle int) *Processor {
+func NewProcessor(attr1 AttribMapper, attr2 AttribMapper, pivotSize int, quoteStyle int) *Processor {
 	valPrefix := "xtargets='"
 	valSuffix := "'"
-	if quoteStyle == 2 {
+	if quoteStyle == quoteStyleDouble {
 		valPrefix = "xtargets=\""
 		valSuffix = "\""
 	}
@@ -94,6 +73,7 @@ func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, pivotSize int,
 		attr2:           attr2,
 		valPrefix:       valPrefix,
 		valSuffix:       valSuffix,
+		valOffset:       len(valPrefix),
 		lastPos:         0,
 		lastPivotPos:    0,
 		pivotStructSize: pivotSize,
@@ -101,7 +81,7 @@ func NewProcessor(attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr, pivotSize int,
 }
 
 // processColElm parses a left or right item of a mapping line
-func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum int) (mapping.PosRange, error) {
+func (p *Processor) processColElm(value string, attr AttribMapper, lineNum int) (mapping.PosRange, error) {
 	if value == "" {
 		return mapping.PosRange{-1, -1}, nil
 	}
@@ -117,18 +97,16 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 	b := attr.Str2ID(beg)
 	e := attr.Str2ID(end)
 
-	if b == -1 || e == -1 {
-		if b == -1 && e == -1 {
-			return mapping.PosRange{}, fmt.Errorf("skipping invalid position range [ %s, %s ] on line %d", beg, end, lineNum+1)
+	if b == -1 && e == -1 {
+		return mapping.PosRange{}, fmt.Errorf("skipping invalid position range [ %s, %s ] on line %d", beg, end, lineNum+1)
 
-		} else if b == -1 {
-			log.Printf("ERROR: invalid left side of position range [ %s ] on line %d, using right side", beg, lineNum+1)
-			return mapping.PosRange{e, e}, nil
+	} else if b == -1 {
+		log.Printf("ERROR: invalid left side of position range [ %s ] on line %d, using right side", beg, lineNum+1)
+		return mapping.PosRange{e, e}, nil
 
-		} else {
-			log.Printf("ERROR: invalid right side of position range [ %s ] on line %d, using left side", end, lineNum+1)
-			return mapping.PosRange{b, b}, nil
-		}
+	} else if e == -1 {
+		log.Printf("ERROR: invalid right side of position range [ %s ] on line %d, using left side", end, lineNum+1)
+		return mapping.PosRange{b, b}, nil
 	}
 	return mapping.PosRange{b, e}, nil
 }
@@ -142,9 +120,9 @@ func (p *Processor) processColElm(value string, attr attrib.GoPosAttr, lineNum i
 func (p *Processor) parseLine(src string) string {
 	startIdx := strings.Index(src, p.valPrefix)
 	if startIdx > -1 {
-		endIdx := strings.Index(src[startIdx+10:], p.valSuffix)
+		endIdx := strings.Index(src[startIdx+p.valOffset:], p.valSuffix)
 		if endIdx > -1 {
-			return src[startIdx+10 : startIdx+10+endIdx]
+			return src[startIdx+p.valOffset : startIdx+p.valOffset+endIdx]
 		}
 	}
 	return ""
@@ -181,17 +159,19 @@ func (p *Processor) processLine(line string, lineNum int) (mapping.Mapping, erro
 // transforms them into a numeric representation based on internal
 // identifiers used by Manatee.
 // The function does not print anything to stdout.
-func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping)) error {
+func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item mapping.Mapping, i int)) error {
 	reader := bufio.NewScanner(file)
 	reader.Buffer(make([]byte, bufio.MaxScanTokenSize), bufferSize)
 	var i int
+	count := 0
 	for i = 0; reader.Scan(); i++ {
 		if i%1000000 == 0 {
 			log.Printf("INFO: Read %dm lines", i/1000000)
 		}
 		mp, err := p.processLine(reader.Text(), i)
 		if err == nil {
-			onItem(mp)
+			onItem(mp, count)
+			count++
 
 		} else {
 			switch err.(type) {
@@ -210,7 +190,8 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 				Last:  p.pivotStructSize - 1,
 			},
 			IsGap: true,
-		})
+		}, count)
+		count++
 	}
 	err := reader.Err()
 	if err != nil {
