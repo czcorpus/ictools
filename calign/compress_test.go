@@ -18,13 +18,15 @@
 package calign
 
 import (
-	"fmt"
+	"log"
+	"testing"
 
 	"github.com/czcorpus/ictools/mapping"
+	"github.com/stretchr/testify/assert"
 )
 
 func compress(data []mapping.Mapping, onItem func(mapping.Mapping)) {
-	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+	lastItem := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for _, item := range data {
 		compressStep(&item, &lastItem, false, onItem)
@@ -38,39 +40,28 @@ func compress(data []mapping.Mapping, onItem func(mapping.Mapping)) {
 	}
 }
 
-func TestCompressGaps() {
+func TestCompress(t *testing.T) {
 	data := make([]mapping.Mapping, 0, 5)
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{0, 0},
-		To:   mapping.PosRange{-1, -1},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{1, 2},
-		To:   mapping.PosRange{-1, -1},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{3, 3},
-		To:   mapping.PosRange{-1, -1},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{-1, -1},
-		To:   mapping.PosRange{0, 0},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{-1, -1},
-		To:   mapping.PosRange{1, 2},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{4, 4},
-		To:   mapping.PosRange{-1, -1},
-	})
-	data = append(data, mapping.Mapping{
-		From: mapping.PosRange{5, 6},
-		To:   mapping.PosRange{3, 3},
-	})
+	data = append(data, mapping.NewMapping(0, 0, -1, -1))
+	data = append(data, mapping.NewMapping(1, 2, -1, -1))
+	data = append(data, mapping.NewMapping(3, 3, -1, -1))
+	data = append(data, mapping.NewMapping(-1, -1, 0, 0))
+	data = append(data, mapping.NewMapping(-1, -1, 1, 2))
+	data = append(data, mapping.NewMapping(4, 4, -1, -1))
+	data = append(data, mapping.NewMapping(5, 6, 3, 3))
 
+	valData := []mapping.Mapping{
+		mapping.NewGapMapping(0, 3, -1, -1),
+		mapping.NewGapMapping(4, 4, -1, -1),
+		mapping.NewGapMapping(-1, -1, 0, 2),
+		mapping.NewMapping(5, 6, 3, 3),
+	}
+
+	i := 0
 	compress(data, func(item mapping.Mapping) {
-		fmt.Println("ITEM ", item)
+		log.Print(item)
+		assert.Equal(t, valData[i], item)
+		i++
 	})
 
 }
