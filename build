@@ -104,7 +104,7 @@ def init_sources(manatee_src):
         subprocess.Popen('make clean', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
         subprocess.Popen('./configure --with-pcre', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
 
-def build_project(manatee_src, finlib_src, manatee_lib):
+def build_project(manatee_src, finlib_src, manatee_lib, test=False):
     if finlib_src:
         build_env = {
             'CGO_CPPFLAGS': '-I{0} -I{1}'.format(manatee_src, finlib_src),
@@ -118,8 +118,11 @@ def build_project(manatee_src, finlib_src, manatee_lib):
     print('\nBuilding the project with the following env. variables:\n{0}'.format('\n'.join(['{0} {1}'.format(*x) for x in build_env.items()])))
     env = dict(os.environ)
     env.update(build_env)
-
-    p = subprocess.Popen('go build', shell=True, env=env, executable='/bin/bash')
+    if test:
+        print('Running TESTS:\n')
+        p = subprocess.Popen('go test ./...', shell=True, env=env, executable='/bin/bash')
+    else:
+        p = subprocess.Popen('go build', shell=True, env=env, executable='/bin/bash')
     p.wait()
 
 def list_supported_versions():
@@ -141,13 +144,14 @@ if __name__ == '__main__':
     argparser.add_argument('version', metavar="VERSION",
                            help="Manatee version used along with ictools. Supported versions: {0}".format(
                                ', '.join(list_supported_versions())))
+    argparser.add_argument('-t', '--test', action='store_const', const=True)
     argparser.add_argument('-f', '--finlib-src', type=str, help='Location of Finlib source files')
     argparser.add_argument('-m', '--manatee-src', type=str, help='Location of Manatee source files')
     argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
     args = argparser.parse_args()
 
     print('+----------------------------------+')
-    print('| ICTOOLS build helper script v0.2 |')
+    print('| ICTOOLS build helper script v0.3 |')
     print('+----------------------------------+')
 
     if args.version not in KNOWN_VERSIONS:
@@ -203,7 +207,7 @@ if __name__ == '__main__':
         pass
 
     init_sources(manatee_src)
-    build_project(manatee_src, finlib_src, manatee_lib)
+    build_project(manatee_src, finlib_src, manatee_lib, test=bool(args.test))
 
     if should_generate_run_script:
         os.rename(rs_path, bin_path)
