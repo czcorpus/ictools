@@ -26,48 +26,60 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
-func mkMapping(beg int, end int, rightEmpty bool) mapping.Mapping {
-	if beg == end {
-		if rightEmpty {
-			return mapping.NewGapMapping(beg, beg, -1, -1)
-		}
-		return mapping.NewGapMapping(-1, -1, beg, beg)
-	}
-	if rightEmpty {
+func mkLeftToEmpty(beg int, end int, isGap bool) mapping.Mapping {
+	if isGap {
 		return mapping.NewGapMapping(beg, end, -1, -1)
 	}
-	return mapping.NewGapMapping(-1, -1, beg, end)
+	return mapping.NewMapping(beg, end, -1, -1)
 }
 
-func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, gapsOnly bool, onItem func(item mapping.Mapping)) {
-	if item.To.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
-		if lastItem.From.First == -2 {
-			lastItem.From.First = item.From.First
-			lastItem.From.Last = item.From.Last
-
-		} else {
-			lastItem.From.Last = item.From.Last
-		}
-		return
-
-	} else if lastItem.From.First != -2 {
-		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
-		lastItem.From.First = -2
+func mkEmptyToRight(beg int, end int, isGap bool) mapping.Mapping {
+	if isGap {
+		return mapping.NewGapMapping(-1, -1, beg, end)
 	}
+	return mapping.NewMapping(-1, -1, beg, end)
+}
 
-	if item.From.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
-		if lastItem.To.First == -2 {
-			lastItem.To.First = item.To.First
-			lastItem.To.Last = item.To.Last
+// compressStep decides whether 'item' should be either added to
+// one of currently expanded ranges (currRanges) or directly printed.
+// Please note that 'currRanges' is of a little misused type here as it
+// stores no concrete mapping line we want eventually store but rather currently
+// reached non-empty ranges for left and right sizes.
+func compressStep(item *mapping.Mapping, currRanges *mapping.Mapping, gapsOnly bool, onItem func(item mapping.Mapping)) {
+	if item.To.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
+		if currRanges.From.First == -2 {
+			currRanges.From.First = item.From.First
+			currRanges.From.Last = item.From.Last
+			currRanges.IsGap = item.IsGap
 
 		} else {
-			lastItem.To.Last = item.To.Last
+			currRanges.From.Last = item.From.Last
 		}
 		return
 
-	} else if lastItem.To.First != -2 {
-		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
-		lastItem.To.First = -2
+	} else if currRanges.From.First != -2 {
+		onItem(mkLeftToEmpty(currRanges.From.First, currRanges.From.Last, currRanges.IsGap))
+		currRanges.From.First = -2
+		currRanges.From.Last = -2
+		currRanges.IsGap = false
+		// TODO also reset From.Last
+	}
+	if item.From.First == -1 && (gapsOnly && item.IsGap || !gapsOnly) {
+		if currRanges.To.First == -2 {
+			currRanges.To.First = item.To.First
+			currRanges.To.Last = item.To.Last
+			currRanges.IsGap = item.IsGap
+
+		} else {
+			currRanges.To.Last = item.To.Last
+		}
+		return
+
+	} else if currRanges.To.First != -2 {
+		onItem(mkEmptyToRight(currRanges.To.First, currRanges.To.Last, currRanges.IsGap))
+		currRanges.To.First = -2
+		currRanges.To.Last = -2
+		currRanges.IsGap = false
 	}
 	onItem(*item)
 }
@@ -77,19 +89,19 @@ func compressStep(item *mapping.Mapping, lastItem *mapping.Mapping, gapsOnly boo
 // beginning of the first line in the series and 'an' is the end of the last
 // line in the series.
 func CompressFromChan(ch chan []mapping.Mapping, gapsOnly bool, onItem func(mapping.Mapping)) {
-	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+	currRanges := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for buff := range ch {
 		for _, item := range buff {
-			compressStep(&item, &lastItem, gapsOnly, onItem)
+			compressStep(&item, &currRanges, gapsOnly, onItem)
 		}
 	}
 
-	if lastItem.From.First != -2 {
-		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
-
-	} else if lastItem.To.First != -2 {
-		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
+	if currRanges.From.First != -2 {
+		onItem(mkLeftToEmpty(currRanges.From.First, currRanges.From.Last, currRanges.IsGap))
+	}
+	if currRanges.To.First != -2 {
+		onItem(mkEmptyToRight(currRanges.To.First, currRanges.To.Last, currRanges.IsGap))
 	}
 }
 
@@ -97,22 +109,22 @@ func CompressFromChan(ch chan []mapping.Mapping, gapsOnly bool, onItem func(mapp
 // the data source is a file in this case.
 func CompressFromFile(file *os.File, gapsOnly bool, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
-	lastItem := mapping.NewGapMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
+	currRanges := mapping.NewMapping(-2, -2, -2, -2) // -2 is an empty value placeholder
 
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
 		if err == nil {
-			compressStep(&item, &lastItem, gapsOnly, onItem)
+			compressStep(&item, &currRanges, gapsOnly, onItem)
 
 		} else {
 			log.Printf("ERROR: Failed to process line %d: %s", i, err)
 		}
 	}
 
-	if lastItem.From.First != -2 {
-		onItem(mkMapping(lastItem.From.First, lastItem.From.Last, true))
-
-	} else if lastItem.To.First != -2 {
-		onItem(mkMapping(lastItem.To.First, lastItem.To.Last, false))
+	if currRanges.From.First != -2 {
+		onItem(mkLeftToEmpty(currRanges.From.First, currRanges.From.Last, currRanges.IsGap))
+	}
+	if currRanges.To.First != -2 {
+		onItem(mkEmptyToRight(currRanges.To.First, currRanges.To.Last, currRanges.IsGap))
 	}
 }
