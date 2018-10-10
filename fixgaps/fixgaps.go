@@ -31,8 +31,9 @@ import (
 // FromFile inserts [-1, a] or [a, -1] between identifiers
 // A1 and A2 where A2 > A1+1 (but also with respect to two possible
 // positions in a column).
-// Data are read from file 'file'. If startFromZero is true then
-// the list starts from zero else from the first found item.
+// Data are read from 'file'. If startFromZero is true then
+// the list is always build so it starts from position 0.
+// Otherwise, the list starts from the first found item.
 // The function does not print anything to stdout.
 func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
