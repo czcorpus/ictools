@@ -237,17 +237,14 @@ func runImport(args calignArgs, noCompress bool) {
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [full alignment file 1] [full alignment file2]\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] calign [registry path] [registry path pivot] [attr] [mapping file]?\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] compressrng [file]?\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s [options] fixgaps [alignment file]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [LANG registry] [PIVOT registry] [attr] [LANG-PIVOT mapping file]?\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [LANG1-PIVOT alignment file] [LANG2-PIVOT alignment file]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var lineBufferSize int
 	flag.IntVar(&lineBufferSize, "line-buffer", bufio.MaxScanTokenSize, "Max line buffer size")
 	var registryPath string
-	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files")
+	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files (allows using just filenames for registry values in 'import')")
 	var noCompress bool
 	flag.BoolVar(&noCompress, "no-compress", false, "Do not compress intermediate data (needs more ram/disk)")
 	var quoteStyle int
