@@ -10,18 +10,75 @@ in *KonText* (or NoSkE).
 
 ## Contents
 
+* [Using ictools](#using_ictools)
 * [How to build ictools](#how_to_build_ictools)
   * [build helper script](#how_to_build_ictools_helper_script)
   * [manual variant](#how_to_build_ictools_manual_variant)
-* [Using ictools](#using_ictools)
 * [Benchmark](#benchmark)
+* [For developers](#for_developers)
+  * [Setting up VSCode debugging/testing environment](#for_developers_setting_up_vscode)
+  * [running tests](#for_developers_running_tests)
+
+<a name="using_ictools"></a>
+## Using ictools
+
+*Ictools* provide two operations:
+
+### import
+
+Import operation transforms an alignment XML file containing aligned string sentence IDs to a numeric form.
+It is able to handle non-existing alignments, gaps between ranges (including the last row range where structure
+size is always used to make sure the whole range is filled in).
+
+In terms of the input format, a list of `&lt;link&gt;` elements is expected:
+
+```xml
+<link type='0-3' xtargets=';cs:Adams-Holisticka_det_k:0:7:1 cs:Adams-Holisticka_det_k:0:7:2 cs:Adams-Holisticka_det_k:0:7:3' status='man'/>
+```
+
+Please note that the parser does not care about XML validity (e.g. there is no need for a root element or even
+a proper nesting of elements).
+
+In some cases you may want to *tweak line buffer size* (value is in bytes; by default *bufio.MaxScanTokenSize* = 64 * 1024 is used which may fail in case of some complex alignments and/or long text identifiers). In case the buffer is too
+small, ictools will end with fatal log event returning a non-zero value to shell.
+
+```
+ictools -line-buffer 250000 -registry-path /var/local/corpora/registry import ....etc...
+```
+
+**Example:**
+
+Let's say we have two files with mappings between Polish and Czech (*intercorp_pl2cs*) and between
+English and Czech (*intercorp.en2cs*) where Czech is a pivot.
+
+```
+ictools -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs > intercorp.pl2cs
+
+ictools -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs > intercorp.en2cs
+```
+
+### transalign
+
+Transalign operation takes two numeric alignments against a common pivot language and generates
+a new alignment between the two non-pivot languages.
+
+**Example:**
+
+```
+ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
+```
+
+
+
 
 <a name="how_to_build_ictools"></a>
 ## How to build ictools
 
 To build ictools, a working installation of Manatee(-open) must be installed on your system.
 This includes not just *libmanatee.so* shared library but also source header files for both
-Manatee(-open) and Finlib. A working Go language environment is also required.
+Manatee(-open) and Finlib. Please note that Manatee starting from 2.158.8 includes Finlib so
+there is no need to build Finlib separately. A working Go language environment is also required
+(see [install instructions](https://golang.org/doc/install)).
 
 Download ictools package:
 
@@ -33,10 +90,7 @@ go get -d https://github.com/czcorpus/ictools
 ### build helper script
 
 *Ictools* are written to work directly with [Manatee-open](https://nlp.fi.muni.cz/trac/noske) library which
-itself is written in C++. This makes the build process a little more complicated then just `go get ...` or `go build`. To be able to build *ictools* you must have:
-
-* *Manatee-open* binaries installed anywhere on your system, ideally with Python API wrapper (which is created by default),
-* *Manatee-open* sources.
+itself is written in C++. This makes the build process a little more complicated then just `go get ...` or `go build`.
 
 *Ictools* come with a simple *build* script (written in Python 2) which is able to handle all the details
 for you. In the best scenario, the script requires only Manatee-open version you are building against. It tries to
@@ -98,72 +152,6 @@ In case your have `$GOPATH/bin` in your `$PATH` you are ready to go. Otherwise y
 compiled binary to a location like `/usr/local/bin` to be able to call it without referring its full
 path.
 
-<a name="using_ictools"></a>
-## Using ictools
-
-
-### The default usage style
-
-**This usage style is recommended** as it handles whole import of XML data
-(= *calign* -> *fixgaps* -> *compress*) in one step. The individual transformations the import
-is composed of run concurrently to be able to keep up with the classic scripts connected via
-pipes (where all the processes run concurrently too). Ictools' approach is a little bit more
-efficient as there is no process overhead, no repeated data serialization/deserialization.
-
-To prepare alignment data, two actions are necessary:
-
-1. importing of two or more XML files containing mappings between structures (typically sentences with some unique identifiers) of two languages:
-     1. a language to be aligned with some other non-pivot language,
-     1. a pivot language (used for all the alignment generating actions).
-   the pivot) of them is considered a *pivot*) (*import* action).
-1. create a new mapping between two or more non-pivot languages (*transalign* action)
-  * this requires the previous action to be run for at least two different non-pivot languages
-
-Please note that the parser does not care about XML validity - it just looks for tags with the
-following form (actually, only *xtargets* attribute is significant):
-
-```xml
-<link type='0-3' xtargets=';cs:Adams-Holisticka_det_k:0:7:1 cs:Adams-Holisticka_det_k:0:7:2 cs:Adams-Holisticka_det_k:0:7:3' status='man'/>
-```
-
-Let's say we have two files with mappings between Polish and Czech (*intercorp_pl2cs*) and between
-English and Czech (*intercorp.en2cs*) where Czech is a pivot.
-
-```bash
-ictools -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs > intercorp.pl2cs
-
-ictools -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs > intercorp.en2cs
-
-ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
-```
-
-For the *import* action, you may want to *tweak line buffer size* (value is in bytes; by default *bufio.MaxScanTokenSize* = 64 * 1024 is used which may fail in case of some complex alignments and/or long text identifiers). In case the buffer is too
-small, ictools will end with fatal log event returning a non-zero value to shell.
-
-```bash
-ictools -line-buffer 250000 -registry-path /var/local/corpora/registry import ....etc...
-```
-
-In case you do not want a result file to be compressed, use *no-compress* arg. Normally, you
-don't need this:
-
-```bash
-ictools -no-compress ....etc....
-```
-
-### The "old" usage style
-
-This is for legacy (and debugging) reasons and it should work in a similar way to the Python scripts
-*calign.py*, *compressrng.py*, *fixgaps.py* and *transalign.py*.
-
-```bash
-ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_pl intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_pl2cs | ictools fixgaps | ictools compressrng > intercorp.pl2cs
-
-ictools calign -registry-path /var/local/corpora/registry import intercorp_v10_en intercorp_v10_cs s.id /var/local/corpora/aligndef/intercorp_en2cs | ictools fixgaps | ictools compressrng > intercorp.en2cs
-
-ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
-```
-
 <a name="benchmark"></a>
 ## Benchmark
 
@@ -196,17 +184,10 @@ by the classic scripts. The import function (i.e. calign+fixgaps+compress) in bo
 consumes only a little RAM because data read from an input file are (almost) immediately written
 to the output without any unnecessary memory allocation.
 
+<a name="for_developers"></a>
 ## For developers
 
-### Running tests
-
-Try to use `./build` script first to find out environment variables the script generated and then use
-them:
-
-```
-CGO_LDFLAGS="-lmanatee -L/usr/local/lib" CGO_CPPFLAGS="-I/tmp/manatee-open-2.158.8" go test ./...
-```
-
+<a name="for_developers_setting_up_vscode"></a>
 ### Setting up VSCode debugging/testing environment
 
 Open *debug* environment (left column) and click the "gear" button to edit *launch.json*. Then
@@ -217,11 +198,31 @@ set proper environment variables (just like in the previous paragraph).
   "version": "0.2.0",
   "configurations": [
     {
-      // parts are omitted here
+      " ....  parts are omitted here ... " : " ... ",
       "env": {
           "CGO_LDFLAGS": "-lmanatee -L/usr/local/lib",
           "CGO_CPPFLAGS": "-I/tmp/manatee-open-2.158.8"
-      }
+      },
+      " ....  parts are omitted here ... " : " ... ",
     }
   ]
 }
+```
+
+
+<a name="for_developers_running_tests"></a>
+### Running tests
+
+To run the tests, add `--test` argument when running the *build* script. All the other parameters
+must be set in the same way as when building the project. E.g.:
+
+```
+./build 2.150 --manatee-lib /opt/manatee-2.150/lib --test
+```
+
+To run  tests manually try to use `./build` script first to find out what are the values
+of `CGO_LDFLAGS` and `CGO_CPPFLAGS` variables and then use them like this:
+
+```
+CGO_LDFLAGS="-lmanatee -L/usr/local/lib" CGO_CPPFLAGS="-I/tmp/manatee-open-2.158.8" go test ./...
+```
