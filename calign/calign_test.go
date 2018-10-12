@@ -74,9 +74,8 @@ func (ma *MockAttr2) Str2ID(value string) int {
 
 func createProcessor() *Processor {
 	return &Processor{
-		attr1:           &MockAttr1{},
-		attr2:           &MockAttr2{},
-		pivotStructSize: 2,
+		attr1: &MockAttr1{},
+		attr2: &MockAttr2{},
 	}
 }
 
@@ -245,13 +244,12 @@ func TestProcessLineRangeMissing2(t *testing.T) {
 func TestNewProcessor(t *testing.T) {
 	attr1 := &MockAttr1{}
 	attr2 := &MockAttr2{}
-	p := NewProcessor(attr1, attr2, 10, quoteStyleSingle)
+	p := NewProcessor(attr1, attr2, quoteStyleSingle)
 	assert.Equal(t, p.valPrefix, "xtargets='")
 	assert.Equal(t, p.valSuffix, "'")
 	assert.Equal(t, p.valOffset, len("xtargets='"))
 	assert.Equal(t, p.lastPos, 0)
 	assert.Equal(t, p.lastPivotPos, 0)
-	assert.Equal(t, p.pivotStructSize, 10)
 	assert.Equal(t, p.attr1, attr1)
 	assert.Equal(t, p.attr2, attr2)
 }
@@ -259,13 +257,12 @@ func TestNewProcessor(t *testing.T) {
 func TestNewProcessorDoubleQ(t *testing.T) {
 	attr1 := &MockAttr1{}
 	attr2 := &MockAttr2{}
-	p := NewProcessor(attr1, attr2, 10, quoteStyleDouble)
+	p := NewProcessor(attr1, attr2, quoteStyleDouble)
 	assert.Equal(t, p.valPrefix, "xtargets=\"")
 	assert.Equal(t, p.valSuffix, "\"")
 	assert.Equal(t, p.valOffset, len("xtargets=\""))
 	assert.Equal(t, p.lastPos, 0)
 	assert.Equal(t, p.lastPivotPos, 0)
-	assert.Equal(t, p.pivotStructSize, 10)
 	assert.Equal(t, p.attr1, attr1)
 	assert.Equal(t, p.attr2, attr2)
 }
@@ -290,7 +287,6 @@ func TestProcessFile(t *testing.T) {
 		panic(err)
 	}
 	p := createFullProcessor()
-	p.pivotStructSize = 10
 	i2 := 0 // we deliberately ignore argument 'i' as possibly flawed
 	err = p.ProcessFile(f, 1000, func(item mapping.Mapping, i int) {
 		assert.Equal(t, valData[i2], item)

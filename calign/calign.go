@@ -49,18 +49,17 @@ type AttribMapper interface {
 // Processor represents an object used
 // to process an alignment XML input file.
 type Processor struct {
-	attr1           AttribMapper
-	attr2           AttribMapper
-	valPrefix       string
-	valSuffix       string
-	valOffset       int
-	lastPos         int
-	lastPivotPos    int
-	pivotStructSize int
+	attr1        AttribMapper
+	attr2        AttribMapper
+	valPrefix    string
+	valSuffix    string
+	valOffset    int
+	lastPos      int
+	lastPivotPos int
 }
 
 // NewProcessor creates a new instance of Processor
-func NewProcessor(attr1 AttribMapper, attr2 AttribMapper, pivotSize int, quoteStyle int) *Processor {
+func NewProcessor(attr1 AttribMapper, attr2 AttribMapper, quoteStyle int) *Processor {
 	valPrefix := "xtargets='"
 	valSuffix := "'"
 	if quoteStyle == quoteStyleDouble {
@@ -69,14 +68,13 @@ func NewProcessor(attr1 AttribMapper, attr2 AttribMapper, pivotSize int, quoteSt
 	}
 
 	return &Processor{
-		attr1:           attr1,
-		attr2:           attr2,
-		valPrefix:       valPrefix,
-		valSuffix:       valSuffix,
-		valOffset:       len(valPrefix),
-		lastPos:         0,
-		lastPivotPos:    0,
-		pivotStructSize: pivotSize,
+		attr1:        attr1,
+		attr2:        attr2,
+		valPrefix:    valPrefix,
+		valSuffix:    valSuffix,
+		valOffset:    len(valPrefix),
+		lastPos:      0,
+		lastPivotPos: 0,
 	}
 }
 
@@ -181,17 +179,6 @@ func (p *Processor) ProcessFile(file *os.File, bufferSize int, onItem func(item 
 				log.Printf("ERROR: %s (file: %s)", err, filepath.Base(file.Name()))
 			}
 		}
-	}
-	if p.lastPos < p.pivotStructSize-1 {
-		onItem(mapping.Mapping{
-			From: mapping.NewEmptyPosRange(),
-			To: mapping.PosRange{
-				First: p.lastPivotPos + 1,
-				Last:  p.pivotStructSize - 1,
-			},
-			IsGap: true,
-		}, count)
-		count++
 	}
 	err := reader.Err()
 	if err != nil {
