@@ -101,7 +101,7 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 		}
 	}
 
-	if lastL1 < struct1Size {
+	if lastL1 < struct1Size-1 {
 		log.Printf("WARNING: Filled in missing end %d,%d in the LEFT language. Please make sure this is correct.", lastL1+1, struct1Size-1)
 		onItem(mapping.Mapping{
 			From: mapping.PosRange{
@@ -113,7 +113,7 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 		})
 	}
 
-	if lastL2 < struct2Size {
+	if lastL2 < struct2Size-1 {
 		log.Printf("WARNING: Filled in missing end %d,%d in the PIVOT language. Please make sure this is correct.", lastL2+1, struct2Size-1)
 		onItem(mapping.Mapping{
 			From: mapping.NewEmptyPosRange(),
