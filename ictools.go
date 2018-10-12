@@ -178,9 +178,7 @@ func runTransalign(filePath1 string, filePath2 string) {
 }
 
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
-// The function creates 1 or 2 (depends on whether
-// noCompress is false/true) new goroutines.
-func runImport(args calignArgs, noCompress bool) {
+func runImport(args calignArgs) {
 	file, processor := prepareCalign(args)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
@@ -201,37 +199,28 @@ func runImport(args calignArgs, noCompress bool) {
 		close(ch1)
 	}()
 
-	var err error
-
-	if noCompress {
-		err = fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
-			fmt.Println(item)
-		})
-
-	} else {
-		ch2 := make(chan []mapping.Mapping, 5)
-		go func() {
-			buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
-			err = fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
-				buff2 = append(buff2, item)
-				if len(buff2) == defaultChanBufferSize {
-					ch2 <- buff2
-					buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
-				}
-			})
-			if err != nil {
-				log.Fatal("FATAL: ", err)
-
-			} else if len(buff2) > 0 {
+	ch2 := make(chan []mapping.Mapping, 5)
+	go func() {
+		buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
+		err := fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
+			buff2 = append(buff2, item)
+			if len(buff2) == defaultChanBufferSize {
 				ch2 <- buff2
-
+				buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 			}
-			close(ch2)
-		}()
-		calign.CompressFromChan(ch2, true, func(item mapping.Mapping) {
-			fmt.Println(item)
 		})
-	}
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+
+		} else if len(buff2) > 0 {
+			ch2 <- buff2
+
+		}
+		close(ch2)
+	}()
+	calign.CompressFromChan(ch2, true, func(item mapping.Mapping) {
+		fmt.Println(item)
+	})
 
 }
 
@@ -245,8 +234,6 @@ func main() {
 	flag.IntVar(&lineBufferSize, "line-buffer", bufio.MaxScanTokenSize, "Max line buffer size")
 	var registryPath string
 	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files (allows using just filenames for registry values in 'import')")
-	var noCompress bool
-	flag.BoolVar(&noCompress, "no-compress", false, "Do not compress intermediate data (needs more ram/disk)")
 	var quoteStyle int
 	flag.IntVar(&quoteStyle, "quote-style", 1, "Input XML quote style: 1 - single, 2 - double")
 
@@ -269,7 +256,7 @@ func main() {
 				mappingFilePath: flag.Arg(4),
 				bufferSize:      lineBufferSize,
 				quoteStyle:      quoteStyle,
-			}, noCompress)
+			})
 		case "calign":
 			runCalign(calignArgs{
 				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
