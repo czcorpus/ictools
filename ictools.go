@@ -47,7 +47,14 @@ type calignArgs struct {
 	quoteStyle      int
 }
 
-func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
+type corpusPair struct {
+	corp1 attrib.GoCorpus
+	attr1 attrib.GoPosAttr
+	corp2 attrib.GoCorpus
+	attr2 attrib.GoPosAttr
+}
+
+func openCorpora(args calignArgs) *corpusPair {
 	var err error
 
 	c1, err := attrib.OpenCorpus(args.registryPath1)
@@ -66,65 +73,33 @@ func prepareCalign(args calignArgs) (*os.File, *calign.Processor) {
 	if err != nil {
 		log.Fatalf("FATAL: Failed to open attribute %s", args.attrName)
 	}
-
-	var file *os.File
-	if args.mappingFilePath == "" {
-		file = os.Stdin
-
-	} else {
-		file, err = os.Open(args.mappingFilePath)
-		if err != nil {
-			log.Fatalf("FATAL: Failed to open file %s", args.mappingFilePath)
-		}
+	return &corpusPair{
+		corp1: c1,
+		attr1: attr1,
+		corp2: c2,
+		attr2: attr2,
 	}
-
-	structName := strings.Split(args.attrName, ".")[0]
-	pivotStructSize, err := attrib.GetStructSize(c2, structName)
-	if err != nil {
-		log.Fatalf("FATAL: Cannot determine size of structure %s", structName)
-	}
-	return file, calign.NewProcessor(attr1, attr2, pivotStructSize, args.quoteStyle)
 }
 
-func runCalign(args calignArgs) {
-	file, processor := prepareCalign(args)
-	processor.ProcessFile(file, args.bufferSize, func(item mapping.Mapping, i int) {
-		fmt.Println(item)
-	})
+func getStructSize(corp attrib.GoCorpus, structAttr string) (int, error) {
+	structName := strings.Split(structAttr, ".")[0]
+	return attrib.GetStructSize(corp, structName)
 }
 
-func runFixGaps(filePath string) {
+func prepareCalign(corps *corpusPair, mappingFilePath string, quoteStyle int) (*os.File, *calign.Processor) {
 	var file *os.File
 	var err error
-	if filePath == "" {
+
+	if mappingFilePath == "" {
 		file = os.Stdin
 
 	} else {
-		file, err = os.Open(filePath)
+		file, err = os.Open(mappingFilePath)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to open file %s", filePath))
+			log.Fatalf("FATAL: Failed to open file %s", mappingFilePath)
 		}
 	}
-	fixgaps.FromFile(file, true, func(item mapping.Mapping) {
-		fmt.Println(item)
-	})
-}
-
-func runCompress(filePath string) {
-	var file *os.File
-	var err error
-	if filePath == "" {
-		file = os.Stdin
-
-	} else {
-		file, err = os.Open(filePath)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to open file %s", filePath))
-		}
-	}
-	calign.CompressFromFile(file, false, func(item mapping.Mapping) {
-		fmt.Println(item)
-	})
+	return file, calign.NewProcessor(corps.attr1, corps.attr2, quoteStyle)
 }
 
 func runTransalign(filePath1 string, filePath2 string) {
@@ -179,7 +154,8 @@ func runTransalign(filePath1 string, filePath2 string) {
 
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
 func runImport(args calignArgs) {
-	file, processor := prepareCalign(args)
+	corps := openCorpora(args)
+	file, processor := prepareCalign(corps, args.mappingFilePath, args.quoteStyle)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
 	go func() {
@@ -201,8 +177,18 @@ func runImport(args calignArgs) {
 
 	ch2 := make(chan []mapping.Mapping, 5)
 	go func() {
+		var err error
 		buff2 := make([]mapping.Mapping, 0, defaultChanBufferSize)
-		err := fixgaps.FromChan(ch1, true, func(item mapping.Mapping) {
+		s1Size, err := getStructSize(corps.corp1, args.attrName)
+		if err != nil {
+			log.Fatalf("FATAL: Cannot determine size of structure %s (%s)", args.attrName, args.registryPath1)
+		}
+		s2Size, err := getStructSize(corps.corp2, args.attrName)
+		if err != nil {
+			log.Fatalf("FATAL: Cannot determine size of structure %s (%s)", args.attrName, args.registryPath2)
+		}
+
+		err = fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping) {
 			buff2 = append(buff2, item)
 			if len(buff2) == defaultChanBufferSize {
 				ch2 <- buff2
@@ -257,19 +243,6 @@ func main() {
 				bufferSize:      lineBufferSize,
 				quoteStyle:      quoteStyle,
 			})
-		case "calign":
-			runCalign(calignArgs{
-				registryPath1:   filepath.Join(registryPath, flag.Arg(1)),
-				registryPath2:   filepath.Join(registryPath, flag.Arg(2)),
-				attrName:        flag.Arg(3),
-				mappingFilePath: flag.Arg(4),
-				bufferSize:      lineBufferSize,
-				quoteStyle:      quoteStyle,
-			})
-		case "fixgaps":
-			runFixGaps(flag.Arg(1))
-		case "compressrng":
-			runCompress(flag.Arg(1))
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}

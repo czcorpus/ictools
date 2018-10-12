@@ -23,6 +23,7 @@ package fixgaps
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/czcorpus/ictools/mapping"
@@ -35,7 +36,7 @@ import (
 // the list is always build so it starts from position 0.
 // Otherwise, the list starts from the first found item.
 // The function does not print anything to stdout.
-func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mapping)) {
+func FromFile(file *os.File, startFromZero bool, struct1Size int, struct2Size int, onItem func(item mapping.Mapping)) {
 	fr := bufio.NewScanner(file)
 	lastL1 := -1
 	lastL2 := -1
@@ -69,14 +70,14 @@ func FromFile(file *os.File, startFromZero bool, onItem func(item mapping.Mappin
 
 // FromChan is the same as FromFile except from the source
 // of data. In this case, a channel is used.
-func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item mapping.Mapping)) error {
+func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, struct2Size int, onItem func(item mapping.Mapping)) error {
 	lastL1 := -1
 	lastL2 := -1
 	for buff := range ch {
 		for _, item := range buff {
 			if item.From.First != -1 && item.From.First <= lastL1 ||
 				item.To.First != -1 && item.To.First <= lastL2 {
-				return fmt.Errorf("alignment [%s] overlaps an already covered range (left lang: %d, pivot lang: %d)", item, lastL1, lastL2)
+				return fmt.Errorf("alignment [%s] overlaps an already covered range (LEFT position: %d, PIVOT position: %d)", item, lastL1, lastL2)
 			}
 			if !startFromZero && lastL1 == -1 && lastL2 == -1 {
 				lastL1 = item.From.First
@@ -99,5 +100,30 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, onItem func(item ma
 			onItem(item)
 		}
 	}
+
+	if lastL1 < struct1Size {
+		log.Printf("WARNING: Filled in missing end %d,%d in the LEFT language. Please make sure this is correct.", lastL1+1, struct1Size-1)
+		onItem(mapping.Mapping{
+			From: mapping.PosRange{
+				First: lastL1 + 1,
+				Last:  struct1Size - 1,
+			},
+			To:    mapping.NewEmptyPosRange(),
+			IsGap: true,
+		})
+	}
+
+	if lastL2 < struct2Size {
+		log.Printf("WARNING: Filled in missing end %d,%d in the PIVOT language. Please make sure this is correct.", lastL2+1, struct2Size-1)
+		onItem(mapping.Mapping{
+			From: mapping.NewEmptyPosRange(),
+			To: mapping.PosRange{
+				First: lastL2 + 1,
+				Last:  struct2Size - 1,
+			},
+			IsGap: true,
+		})
+	}
+
 	return nil
 }
