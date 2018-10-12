@@ -21,7 +21,6 @@ package transalign
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -107,16 +106,6 @@ func (hm *PivotMapping) Size() int {
 // languages in the "left" language.
 func (hm *PivotMapping) HasGapAtRow(idx int) bool {
 	return hm.gaps[idx]
-}
-
-func (hm *PivotMapping) slicePivot(rightLimit int) {
-	if rightLimit <= len(hm.ranges) {
-		hm.ranges = hm.ranges[:rightLimit]
-
-	} else {
-		panic(fmt.Sprintf("Failed to slice ranges (pivot cap: %d, len: %d, idx: %d)",
-			cap(hm.ranges), len(hm.ranges), rightLimit))
-	}
 }
 
 // Load loads the respective data from a predefined file.
