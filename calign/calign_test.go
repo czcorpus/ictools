@@ -50,6 +50,25 @@ func (ma *MockAttr1) Str2ID(value string) int {
 	}
 }
 
+func (ma *MockAttr1) ID2Str(ident int) string {
+	switch ident {
+	case 0:
+		return "foo:0"
+	case 1:
+		return "foo:1"
+	case 2:
+		return "foo:2"
+	case 3:
+		return "foo:3"
+	case 4:
+		return "foo:4"
+	case 5:
+		return "foo:5"
+	default:
+		return ""
+	}
+}
+
 type MockAttr2 struct {
 }
 
@@ -69,6 +88,25 @@ func (ma *MockAttr2) Str2ID(value string) int {
 		return 5
 	default:
 		return -1
+	}
+}
+
+func (ma *MockAttr2) ID2Str(ident int) string {
+	switch ident {
+	case 0:
+		return "bar:0"
+	case 1:
+		return "bar:1"
+	case 2:
+		return "bar:2"
+	case 3:
+		return "bar:3"
+	case 4:
+		return "bar:4"
+	case 5:
+		return "bar:5"
+	default:
+		return ""
 	}
 }
 

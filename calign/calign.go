@@ -44,6 +44,7 @@ const (
 // form representing structure position in Manatee index.
 type AttribMapper interface {
 	Str2ID(value string) int
+	ID2Str(ident int) string
 }
 
 // Processor represents an object used

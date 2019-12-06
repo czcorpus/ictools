@@ -60,6 +60,12 @@ func (gpa GoPosAttr) Str2ID(value string) int {
 	return int(C.attr_str2id(gpa.attr, C.CString(value)))
 }
 
+// ID2Str transforms a numeric identifier of the attribute
+// to its original string value
+func (gpa GoPosAttr) ID2Str(value int) string {
+	return C.GoString(C.attr_id2str(gpa.attr, C.long(value)))
+}
+
 // OpenCorpus is a factory function creating
 // a Manatee corpus wrapper.
 func OpenCorpus(path string) (GoCorpus, error) {

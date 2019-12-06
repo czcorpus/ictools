@@ -65,9 +65,14 @@ StructSizeRetval get_struct_size(CorpusV corpus, const char* structName);
 AttrRetval get_attr(CorpusV corp, const char* attrName);
 
 /**
- * Get numeric identifier of a provided PosAttr value.
+ * Get numeric identifier of a provided PosAttr's original string value.
  */
 long attr_str2id(PosAttrV attr, const char* str);
+
+/**
+ * Get original string identifier of a provided PosAttr's numeric value.
+ */
+const char* attr_id2str(PosAttrV attr, long ident);
 
 /**
  * Create a Manatee corpus instance
