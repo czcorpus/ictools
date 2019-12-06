@@ -45,6 +45,10 @@ long attr_str2id(PosAttrV attr, const char* str) {
     return ((PosAttr *)attr)->str2id(str);
 }
 
+const char* attr_id2str(PosAttrV attr, long ident) {
+    return ((PosAttr *)attr)->id2str(ident);
+}
+
 StructSizeRetval get_struct_size(CorpusV corpus, const char* structName) {
     string tmp(structName);
     StructSizeRetval ans;

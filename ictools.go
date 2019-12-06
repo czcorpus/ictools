@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,24 +55,24 @@ type corpusPair struct {
 	attr2 attrib.GoPosAttr
 }
 
-func openCorpora(args calignArgs) *corpusPair {
+func openCorpusPair(args calignArgs) *corpusPair {
 	var err error
 
 	c1, err := attrib.OpenCorpus(args.registryPath1)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to open corpus %s", args.registryPath1)
+		log.Fatalf("FATAL: Failed to open corpus %s: %s", args.registryPath1, err)
 	}
 	attr1, err := attrib.OpenAttr(c1, args.attrName)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to open attribute %s", args.attrName)
+		log.Fatalf("FATAL: Failed to open attribute %s: %s", args.attrName, err)
 	}
 	c2, err := attrib.OpenCorpus(args.registryPath2)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to open corpus %s", args.registryPath1)
+		log.Fatalf("FATAL: Failed to open corpus %s: %s", args.registryPath1, err)
 	}
 	attr2, err := attrib.OpenAttr(c2, args.attrName)
 	if err != nil {
-		log.Fatalf("FATAL: Failed to open attribute %s", args.attrName)
+		log.Fatalf("FATAL: Failed to open attribute %s: %s", args.attrName, err)
 	}
 	return &corpusPair{
 		corp1: c1,
@@ -79,6 +80,20 @@ func openCorpora(args calignArgs) *corpusPair {
 		corp2: c2,
 		attr2: attr2,
 	}
+}
+
+func openAttribute(registryPath, attrName string) attrib.GoPosAttr {
+	var err error
+
+	corp, err := attrib.OpenCorpus(registryPath)
+	if err != nil {
+		log.Fatalf("FATAL: Failed to open corpus %s: %s", registryPath, err)
+	}
+	attr, err := attrib.OpenAttr(corp, attrName)
+	if err != nil {
+		log.Fatalf("FATAL: Failed to open attribute %s: %s", attrName, err)
+	}
+	return attr
 }
 
 func getStructSize(corp attrib.GoCorpus, structAttr string) (int, error) {
@@ -154,7 +169,7 @@ func runTransalign(filePath1 string, filePath2 string) {
 
 // runImport runs [calign] > [fixgaps] > [compress]? functions.
 func runImport(args calignArgs) {
-	corps := openCorpora(args)
+	corps := openCorpusPair(args)
 	file, processor := prepareCalign(corps, args.mappingFilePath, args.quoteStyle)
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
@@ -187,16 +202,17 @@ func runImport(args calignArgs) {
 		if err != nil {
 			log.Fatalf("FATAL: Cannot determine size of structure %s (%s)", args.attrName, args.registryPath2)
 		}
-
-		err = fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping) {
+		fgerr := fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping) {
 			buff2 = append(buff2, item)
 			if len(buff2) == defaultChanBufferSize {
 				ch2 <- buff2
 				buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 			}
 		})
-		if err != nil {
-			log.Fatal("FATAL: ", err)
+		if fgerr != nil {
+			log.Print("ERROR: ", fgerr)
+			log.Printf("INFO: orig struct idents are, [%s, %s]", corps.attr1.ID2Str(fgerr.Left), corps.attr2.ID2Str(fgerr.Pivot))
+			log.Fatal("FATAL: cannot continue due to previous error")
 
 		} else if len(buff2) > 0 {
 			ch2 <- buff2
@@ -210,10 +226,16 @@ func runImport(args calignArgs) {
 
 }
 
+func runSearch(corpusRegistry string, attr string, itemIdx int) {
+	attrObj := openAttribute(corpusRegistry, attr)
+	fmt.Printf("\n\nPosition %d -> %s\n\n", itemIdx, attrObj.ID2Str(itemIdx))
+}
+
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [LANG registry] [PIVOT registry] [attr] [LANG-PIVOT mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [LANG1-PIVOT alignment file] [LANG2-PIVOT alignment file]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] search [LANG registry] [attr] [srch position]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var lineBufferSize int
@@ -243,6 +265,12 @@ func main() {
 				bufferSize:      lineBufferSize,
 				quoteStyle:      quoteStyle,
 			})
+		case "search":
+			itemIdx, err := strconv.Atoi(flag.Arg(3))
+			if err != nil {
+				log.Fatalf("FATAL: failed to parse item position: %s. Expected integer number.", flag.Arg(1))
+			}
+			runSearch(flag.Arg(1), flag.Arg(2), itemIdx)
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}

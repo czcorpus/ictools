@@ -29,6 +29,20 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
+type FixGapsError struct {
+	Item  mapping.Mapping
+	Left  int
+	Pivot int
+}
+
+func (f *FixGapsError) Error() string {
+	return fmt.Sprintf("alignment [%s] overlaps an already covered range (LEFT position: %d, PIVOT position: %d)", f.Item, f.Left, f.Pivot)
+}
+
+func NewFixGapsError(item mapping.Mapping, left int, pivot int) *FixGapsError {
+	return &FixGapsError{Item: item, Left: left, Pivot: pivot}
+}
+
 // FromFile inserts [-1, a] or [a, -1] between identifiers
 // A1 and A2 where A2 > A1+1 (but also with respect to two possible
 // positions in a column).
@@ -70,14 +84,14 @@ func FromFile(file *os.File, startFromZero bool, struct1Size int, struct2Size in
 
 // FromChan is the same as FromFile except from the source
 // of data. In this case, a channel is used.
-func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, struct2Size int, onItem func(item mapping.Mapping)) error {
+func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, struct2Size int, onItem func(item mapping.Mapping)) *FixGapsError {
 	lastL1 := -1
 	lastL2 := -1
 	for buff := range ch {
 		for _, item := range buff {
 			if item.From.First != -1 && item.From.First <= lastL1 ||
 				item.To.First != -1 && item.To.First <= lastL2 {
-				return fmt.Errorf("alignment [%s] overlaps an already covered range (LEFT position: %d, PIVOT position: %d)", item, lastL1, lastL2)
+				return NewFixGapsError(item, lastL1, lastL2)
 			}
 			if !startFromZero && lastL1 == -1 && lastL2 == -1 {
 				lastL1 = item.From.First
