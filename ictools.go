@@ -211,7 +211,8 @@ func runImport(args calignArgs) {
 		})
 		if fgerr != nil {
 			log.Print("ERROR: ", fgerr)
-			log.Printf("INFO: orig struct idents are, [%s, %s]", corps.attr1.ID2Str(fgerr.Left), corps.attr2.ID2Str(fgerr.Pivot))
+			log.Printf("INFO: original struct idents are: (LEFT: %s, RIGHT: %s)",
+				corps.attr1.ID2Str(fgerr.Left), corps.attr2.ID2Str(fgerr.Pivot))
 			log.Fatal("FATAL: cannot continue due to previous error")
 
 		} else if len(buff2) > 0 {
