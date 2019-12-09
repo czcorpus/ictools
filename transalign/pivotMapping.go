@@ -21,6 +21,7 @@ package transalign
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -109,22 +110,25 @@ func (hm *PivotMapping) HasGapAtRow(idx int) bool {
 }
 
 // Load loads the respective data from a predefined file.
-func (hm *PivotMapping) Load() {
+func (hm *PivotMapping) Load() error {
 
 	log.Printf("INFO: Loading %s ...", hm.file.Name())
 	var i int
 	for hm.reader.Scan() {
 		elms := strings.Split(hm.reader.Text(), "\t")
+		if elms[0] == mapping.ErrorMark {
+			return fmt.Errorf("Refusing to continue due to the 'ERROR' mark in the source file")
+		}
 		// the mapping in the file is (SOME_LANG -> PIVOT_LANG)
 		pivot := strings.Split(elms[1], ",")
 		l2 := strings.Split(elms[0], ",")
 		pivotPair, err1 := mapping.NewPosRange(pivot)
 		if err1 != nil {
-			log.Printf("ERROR: Failed to parse pivot on line %d: %s", i, err1)
+			return fmt.Errorf("ERROR: Failed to parse pivot on line %d: %s", i, err1)
 		}
 		l2Pair, err2 := mapping.NewPosRange(l2)
 		if err2 != nil {
-			log.Printf("ERROR: Failed to parse other lang on line %d: %s", i, err2)
+			return fmt.Errorf("ERROR: Failed to parse other lang on line %d: %s", i, err2)
 		}
 
 		hm.ranges = append(hm.ranges, &l2Pair)
@@ -133,4 +137,5 @@ func (hm *PivotMapping) Load() {
 		hm.gaps[i] = len(elms) == 3
 	}
 	log.Printf("INFO: ...Done (%d items).", len(hm.ranges))
+	return nil
 }

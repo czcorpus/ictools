@@ -26,6 +26,16 @@ import (
 	"github.com/czcorpus/ictools/common"
 )
 
+const (
+	// ErrorMark is written into a numeric LANG-PIVOT_LANG
+	// mapping file (created during import) in case of an error.
+	// This prevents transalign task from running when such
+	// a file is loaded.
+	ErrorMark = "ERROR"
+
+	errorPositionValue = -2
+)
+
 // PosRange defines a range of (Manatee) structure
 // positions. The most typical range encountered
 // in data is of size 1. In such case First == Last.
@@ -72,10 +82,12 @@ func NewEmptyPosRange() PosRange {
 
 // ----------------------------------------------
 
-// Mapping represents a mapping between
-// two structures from aligned corpora.
-// These mappings are in general M:N
-// (which is why we use PosRange internally here)
+// Mapping represents a mapping between two structures from aligned corpora.
+// These mappings are in general M:N (which is why we use PosRange internally
+// here).
+// Besides positions 0,...,N the code here uses also -1 for undefined mapping
+// and -2 for an error record (but the error record is exported into a special
+// string when creating the outout).
 type Mapping struct {
 	From  PosRange
 	To    PosRange
@@ -85,6 +97,9 @@ type Mapping struct {
 func (m Mapping) String() string {
 	if m.IsGap {
 		return fmt.Sprintf("%s\t%s\tg", m.From, m.To)
+
+	} else if m.From.First == errorPositionValue {
+		return fmt.Sprintf(ErrorMark)
 	}
 	return fmt.Sprintf("%s\t%s", m.From, m.To)
 }
@@ -135,6 +150,17 @@ func NewMappingFromString(src string) (Mapping, error) {
 		return Mapping{}, err2
 	}
 	return Mapping{r1, r2, len(items) == 3}, nil
+}
+
+// NewErrorMapping creates a mapping with all the
+// values set to the value of constant errorPositionValue which
+// is then transformed into an error string mark when exported
+// to string.
+func NewErrorMapping() Mapping {
+	return Mapping{
+		From: PosRange{errorPositionValue, errorPositionValue},
+		To:   PosRange{errorPositionValue, errorPositionValue},
+	}
 }
 
 // ----------------------------------------------

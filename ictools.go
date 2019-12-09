@@ -136,12 +136,18 @@ func runTransalign(filePath1 string, filePath2 string) {
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}
-	hm1.Load()
+	err = hm1.Load()
+	if err != nil {
+		log.Fatal("FATAL: Failed to load pivot mapping 1: ", err)
+	}
 	hm2, err := transalign.NewPivotMapping(file2)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}
-	hm2.Load()
+	err = hm2.Load()
+	if err != nil {
+		log.Fatal("FATAL: Failed to load pivot mapping 2: ", err)
+	}
 
 	ch1 := make(chan []mapping.Mapping, 5)
 	buff1 := make([]mapping.Mapping, 0, defaultChanBufferSize)
@@ -202,23 +208,31 @@ func runImport(args calignArgs) {
 		if err != nil {
 			log.Fatalf("FATAL: Cannot determine size of structure %s (%s)", args.attrName, args.registryPath2)
 		}
-		fgerr := fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping) {
-			buff2 = append(buff2, item)
+
+		errors := make([]error, 0, 10)
+		fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping, err *fixgaps.FixGapsError) {
+			if err != nil {
+				log.Print("ERROR: ", err)
+				log.Printf("INFO: original struct idents are: (LEFT: %s, RIGHT: %s)",
+					corps.attr1.ID2Str(err.Left), corps.attr2.ID2Str(err.Pivot))
+				buff2 = append(buff2, mapping.NewErrorMapping())
+				errors = append(errors, err)
+
+			} else {
+				buff2 = append(buff2, item)
+			}
 			if len(buff2) == defaultChanBufferSize {
 				ch2 <- buff2
 				buff2 = make([]mapping.Mapping, 0, defaultChanBufferSize)
 			}
 		})
-		if fgerr != nil {
-			log.Print("ERROR: ", fgerr)
-			log.Printf("INFO: orig struct idents are, [%s, %s]", corps.attr1.ID2Str(fgerr.Left), corps.attr2.ID2Str(fgerr.Pivot))
-			log.Fatal("FATAL: cannot continue due to previous error")
-
-		} else if len(buff2) > 0 {
+		if len(buff2) > 0 {
 			ch2 <- buff2
-
 		}
 		close(ch2)
+		if len(errors) > 0 {
+			log.Fatalf("FATAL: Finished with %d errors. The result cannot be used to produce a correct alignment.", len(errors))
+		}
 	}()
 	calign.CompressFromChan(ch2, true, func(item mapping.Mapping) {
 		fmt.Println(item)
