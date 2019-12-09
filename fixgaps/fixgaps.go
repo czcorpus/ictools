@@ -84,14 +84,17 @@ func FromFile(file *os.File, startFromZero bool, struct1Size int, struct2Size in
 
 // FromChan is the same as FromFile except from the source
 // of data. In this case, a channel is used.
-func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, struct2Size int, onItem func(item mapping.Mapping)) *FixGapsError {
+func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, struct2Size int,
+	onItem func(item mapping.Mapping, err *FixGapsError)) {
 	lastL1 := -1
 	lastL2 := -1
 	for buff := range ch {
 		for _, item := range buff {
+			var err *FixGapsError
 			if item.From.First != -1 && item.From.First <= lastL1 ||
 				item.To.First != -1 && item.To.First <= lastL2 {
-				return NewFixGapsError(item, lastL1, lastL2)
+				err = NewFixGapsError(item, lastL1, lastL2)
+				onItem(mapping.Mapping{}, err)
 			}
 			if !startFromZero && lastL1 == -1 && lastL2 == -1 {
 				lastL1 = item.From.First
@@ -99,11 +102,11 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 			}
 			for item.From.First > lastL1+1 {
 				lastL1++
-				onItem(mapping.NewGapMapping(lastL1, lastL1, -1, -1))
+				onItem(mapping.NewGapMapping(lastL1, lastL1, -1, -1), nil)
 			}
 			for item.To.First > lastL2+1 {
 				lastL2++
-				onItem(mapping.NewGapMapping(-1, -1, lastL2, lastL2))
+				onItem(mapping.NewGapMapping(-1, -1, lastL2, lastL2), nil)
 			}
 			if item.From.Last != -1 {
 				lastL1 = item.From.Last
@@ -111,7 +114,7 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 			if item.To.Last != -1 {
 				lastL2 = item.To.Last
 			}
-			onItem(item)
+			onItem(item, nil)
 		}
 	}
 
@@ -124,7 +127,7 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 			},
 			To:    mapping.NewEmptyPosRange(),
 			IsGap: true,
-		})
+		}, nil)
 	}
 
 	if lastL2 < struct2Size-1 {
@@ -136,8 +139,6 @@ func FromChan(ch chan []mapping.Mapping, startFromZero bool, struct1Size int, st
 				Last:  struct2Size - 1,
 			},
 			IsGap: true,
-		})
+		}, nil)
 	}
-
-	return nil
 }
