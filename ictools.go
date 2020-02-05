@@ -30,6 +30,7 @@ import (
 
 	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/calign"
+	"github.com/czcorpus/ictools/export"
 	"github.com/czcorpus/ictools/fixgaps"
 	"github.com/czcorpus/ictools/mapping"
 	"github.com/czcorpus/ictools/transalign"
@@ -213,7 +214,9 @@ func runImport(args calignArgs) {
 		fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping, err *fixgaps.FixGapsError) {
 			if err != nil {
 				log.Print("ERROR: ", err)
-				log.Printf("INFO: original struct idents are: (LEFT: %s, RIGHT: %s)",
+				log.Printf("INFO: original struct idents are: item: [%s, %s -- %s, %s], reached positions: [%s, %s]",
+					corps.attr1.ID2Str(err.Item.From.First), corps.attr1.ID2Str(err.Item.From.Last),
+					corps.attr2.ID2Str(err.Item.To.First), corps.attr2.ID2Str(err.Item.To.Last),
 					corps.attr1.ID2Str(err.Left), corps.attr2.ID2Str(err.Pivot))
 				buff2 = append(buff2, mapping.NewErrorMapping())
 				errors = append(errors, err)
@@ -250,6 +253,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage:\n\t%s [options] import [LANG registry] [PIVOT registry] [attr] [LANG-PIVOT mapping file]?\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [LANG1-PIVOT alignment file] [LANG2-PIVOT alignment file]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] search [LANG registry] [attr] [srch position]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s [options] export [LANG1 registry] [LANG2 registry] [attr] [LANG1-LANG2 numeric mapping file]\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var lineBufferSize int
@@ -285,6 +289,19 @@ func main() {
 				log.Fatalf("FATAL: failed to parse item position: %s. Expected integer number.", flag.Arg(1))
 			}
 			runSearch(flag.Arg(1), flag.Arg(2), itemIdx)
+		case "export":
+			corps := openCorpusPair(calignArgs{
+				registryPath1: filepath.Join(registryPath, flag.Arg(1)),
+				registryPath2: filepath.Join(registryPath, flag.Arg(2)),
+				attrName:      flag.Arg(3),
+			})
+			export.Run(
+				corps.corp1,
+				corps.attr1,
+				corps.corp2,
+				corps.attr2,
+				flag.Arg(4),
+			)
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}
