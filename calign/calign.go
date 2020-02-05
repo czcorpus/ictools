@@ -89,7 +89,7 @@ func (p *Processor) processColElm(value string, attr AttribMapper, lineNum int) 
 	if beg == end {
 		b := attr.Str2ID(beg)
 		if b == -1 {
-			return mapping.PosRange{}, fmt.Errorf("skipping invalid position [ %s ] on line %d", beg, lineNum+1)
+			return mapping.PosRange{}, fmt.Errorf("Aligned item [ %s ] on line %d not found in corpus - skipping", beg, lineNum+1)
 		}
 		return mapping.PosRange{b, b}, nil
 	}
@@ -97,14 +97,14 @@ func (p *Processor) processColElm(value string, attr AttribMapper, lineNum int) 
 	e := attr.Str2ID(end)
 
 	if b == -1 && e == -1 {
-		return mapping.PosRange{}, fmt.Errorf("skipping invalid position range [ %s, %s ] on line %d", beg, end, lineNum+1)
+		return mapping.PosRange{}, fmt.Errorf("Aligned range [ %s, %s ] on line %d not found in corpus - skipping", beg, end, lineNum+1)
 
 	} else if b == -1 {
-		log.Printf("ERROR: invalid left side of position range [ %s ] on line %d, using right side", beg, lineNum+1)
+		log.Printf("ERROR: invalid left side of aligned range [ %s ] on line %d, using right side", beg, lineNum+1)
 		return mapping.PosRange{e, e}, nil
 
 	} else if e == -1 {
-		log.Printf("ERROR: invalid right side of position range [ %s ] on line %d, using left side", end, lineNum+1)
+		log.Printf("ERROR: invalid right side of aligned range [ %s ] on line %d, using left side", end, lineNum+1)
 		return mapping.PosRange{b, b}, nil
 	}
 	return mapping.PosRange{b, e}, nil
