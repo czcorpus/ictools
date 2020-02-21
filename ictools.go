@@ -262,6 +262,9 @@ func main() {
 	flag.StringVar(&registryPath, "registry-path", "", "Path to Manatee registry files (allows using just filenames for registry values in 'import')")
 	var quoteStyle int
 	flag.IntVar(&quoteStyle, "quote-style", 1, "Input XML quote style: 1 - single, 2 - double")
+	var exportType string
+	flag.StringVar(&exportType, "export-type", "",
+		fmt.Sprintf("Select specific tools to export data. Currently supported types: %s", export.GroupFilterTypeIntercorp))
 
 	flag.Parse()
 
@@ -290,18 +293,24 @@ func main() {
 			}
 			runSearch(flag.Arg(1), flag.Arg(2), itemIdx)
 		case "export":
+			regPath1 := filepath.Join(registryPath, flag.Arg(1))
+			regPath2 := filepath.Join(registryPath, flag.Arg(2))
 			corps := openCorpusPair(calignArgs{
-				registryPath1: filepath.Join(registryPath, flag.Arg(1)),
-				registryPath2: filepath.Join(registryPath, flag.Arg(2)),
+				registryPath1: regPath1,
+				registryPath2: regPath2,
 				attrName:      flag.Arg(3),
 			})
-			export.Run(
-				corps.corp1,
-				corps.attr1,
-				corps.corp2,
-				corps.attr2,
-				flag.Arg(4),
-			)
+
+			export.Run(export.ExportArgs{
+				RegPath1:        regPath1,
+				Corp1:           corps.corp1,
+				Attr1:           corps.attr1,
+				RegPath2:        regPath2,
+				Corp2:           corps.corp2,
+				Attr2:           corps.attr2,
+				MappingPath:     flag.Arg(4),
+				GroupFilterType: exportType,
+			})
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}
