@@ -66,7 +66,8 @@ func createGroupTag(lang1, lang2, ident string) string {
 	return fmt.Sprintf("<linkGrp toDoc=\"%s\" fromDoc=\"%s\">", g2, g1)
 }
 
-type ExportArgs struct {
+// RunArgs wraps all the values needed to configure the export.
+type RunArgs struct {
 	RegPath1        string
 	Corp1           attrib.GoCorpus
 	Attr1           attrib.GoPosAttr
@@ -77,14 +78,17 @@ type ExportArgs struct {
 	GroupFilterType string
 }
 
-func addAndUngroup(item *mapping.Mapping, currGroup string, groupFilter GroupFilter, q *queue.Queue, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+// ungroupAndPushBack  ungroups (if needed) items encoded in a numeric interval specified by "item".
+// All the resulting groupIDs and *mapping.Mapping instances are then added to the back of the
+// queue 'q'.
+func ungroupAndPushBack(item *mapping.Mapping, currGroup string, groupFilter GroupFilter, q *queue.Deque, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
 	var newGroup string
 	if item.From.First == -1 {
 		prevGroupStartIdx := item.To.First
 		for i := item.To.First; i <= item.To.Last; i++ {
-			newGroup = groupFilter.ExtractGroupId(attr2.ID2Str(i))
+			newGroup = groupFilter.ExtractGroupID(attr2.ID2Str(i))
 			if newGroup != "" && newGroup != currGroup {
-				q.AddLast(newGroup, &mapping.Mapping{
+				q.PushBack(newGroup, &mapping.Mapping{
 					From: mapping.PosRange{First: -1, Last: -1},
 					To:   mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
 				})
@@ -93,7 +97,7 @@ func addAndUngroup(item *mapping.Mapping, currGroup string, groupFilter GroupFil
 			}
 		}
 		if newGroup != "" {
-			q.AddLast(newGroup, &mapping.Mapping{
+			q.PushBack(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: -1, Last: -1},
 				To:   mapping.PosRange{First: prevGroupStartIdx, Last: item.To.Last},
 			})
@@ -102,9 +106,9 @@ func addAndUngroup(item *mapping.Mapping, currGroup string, groupFilter GroupFil
 	} else if item.To.First == -1 {
 		prevGroupStartIdx := item.From.First
 		for i := item.From.First; i <= item.From.Last; i++ {
-			newGroup = groupFilter.ExtractGroupId(attr1.ID2Str(i))
+			newGroup = groupFilter.ExtractGroupID(attr1.ID2Str(i))
 			if newGroup != "" && newGroup != currGroup {
-				q.AddLast(newGroup, &mapping.Mapping{
+				q.PushBack(newGroup, &mapping.Mapping{
 					From: mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
 					To:   mapping.PosRange{First: -1, Last: -1},
 				})
@@ -113,31 +117,36 @@ func addAndUngroup(item *mapping.Mapping, currGroup string, groupFilter GroupFil
 			}
 		}
 		if newGroup != "" {
-			q.AddLast(newGroup, &mapping.Mapping{
+			q.PushBack(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: prevGroupStartIdx, Last: item.From.Last},
 				To:   mapping.PosRange{First: -1, Last: -1},
 			})
 		}
 
 	} else {
-		q.AddLast(currGroup, item)
+		q.PushBack(currGroup, item)
 	}
 }
 
+// getGroupIdent extracts a respective string identifier either from attr1 (i.e. first language)
+// or attr2 (i.e. the second language).
 func getGroupIdent(item *mapping.Mapping, groupFilter GroupFilter, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) string {
 	var group string
 	if item.From.First != -1 {
-		group = groupFilter.ExtractGroupId(attr1.ID2Str(item.From.First))
+		group = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
 	}
 	if group == "" && item.To.First != -1 {
-		group = groupFilter.ExtractGroupId(attr2.ID2Str(item.To.First))
+		group = groupFilter.ExtractGroupID(attr2.ID2Str(item.To.First))
 	}
 	return group
 }
 
-func Run(args ExportArgs) {
-	log.Print(args.Corp1, args.Corp2)
-
+// Run generates a XML-ish output with the same format as the one
+// used as input format for generating numerical alignment files.
+// The algorithm is able to ungroup 'compressed' numeric intervals
+// so if an interval contains multiple texts - all of them should
+// be written to the output.
+func Run(args RunArgs) {
 	srcFile, err := os.Open(args.MappingPath)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
@@ -158,31 +167,31 @@ func Run(args ExportArgs) {
 		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
 		if newGroup1 != "" {
 			if currGroups.Size() == 0 {
-				currGroups.AddLast(newGroup1, &item)
+				currGroups.PushBack(newGroup1, &item)
 				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, &item))
 
-			} else if newGroup1 == currGroups.FirstGroup() {
-				tmp, err := currGroups.RemoveFirst()
+			} else if newGroup1 == currGroups.FrontGroup() {
+				tmp, err := currGroups.PopFront()
 				if err != nil {
-					log.Fatal("FATAL:", err)
+					log.Fatal("FATAL: ", err)
 				}
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
-				currGroups.AddFirst(newGroup1, &item) // !! here we assume that item does not contain multiple docs
+				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
 
-			} else if newGroup1 == currGroups.LastGroup() && currGroups.Size() > 1 {
-				last, err := currGroups.RemoveLast()
+			} else if newGroup1 == currGroups.BackGroup() && currGroups.Size() > 1 {
+				last, err := currGroups.PopBack()
 				if err != nil {
-					log.Fatal("FATAL:", err)
+					log.Fatal("FATAL: ", err)
 				}
 				fmt.Println("</linkGrp>")
 				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, last.Mapping))
 
-				currGroups.AddFirst(newGroup1, &item) // !! here we assume that item does not contain multiple docs
+				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
 
 			} else {
-				addAndUngroup(&item, newGroup1, groupFilter, currGroups, args.Attr1, args.Attr2)
+				ungroupAndPushBack(&item, newGroup1, groupFilter, currGroups, args.Attr1, args.Attr2)
 			}
 		}
 	}

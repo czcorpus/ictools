@@ -23,81 +23,81 @@ import (
 	"testing"
 )
 
-func TestQueue(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddLast("two", nil)
-	q.AddLast("three", nil)
+func TestDeque(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
 	assert.Equal(t, 3, q.Size())
-	ans, err := q.RemoveFirst()
+	ans, err := q.PopFront()
 	assert.Equal(t, "one", ans.GroupID)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, q.Size())
-	ans, err = q.RemoveFirst()
+	ans, err = q.PopFront()
 	assert.Nil(t, err)
 	assert.Equal(t, "two", ans.GroupID)
 	assert.Equal(t, 1, q.Size())
-	ans, err = q.RemoveFirst()
+	ans, err = q.PopFront()
 	assert.Nil(t, err)
 	assert.Equal(t, "three", ans.GroupID)
 	assert.Equal(t, 0, q.Size())
 }
 
-func TestQueueRemoveFromEmpty(t *testing.T) {
-	q := &Queue{}
-	_, err := q.RemoveFirst()
+func TestDequeRemoveFromEmpty(t *testing.T) {
+	q := &Deque{}
+	_, err := q.PopFront()
 	assert.Error(t, err)
 	assert.Equal(t, 0, q.Size())
 }
 
-func TestQueueGetFirstGroup(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddLast("two", nil)
-	assert.Equal(t, "one", q.FirstGroup())
+func TestDequeGetFirstGroup(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	assert.Equal(t, "one", q.FrontGroup())
 }
 
-func TestQueueFirstGroupEmpty(t *testing.T) {
-	q := &Queue{}
-	assert.Equal(t, "", q.FirstGroup())
+func TestDequeFirstGroupEmpty(t *testing.T) {
+	q := &Deque{}
+	assert.Equal(t, "", q.FrontGroup())
 	assert.Equal(t, 0, q.Size())
 }
 
-func TestQueueGetLastGroup(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddLast("two", nil)
-	assert.Equal(t, "two", q.LastGroup())
+func TestDequeGetLastGroup(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	assert.Equal(t, "two", q.BackGroup())
 }
 
-func TestQueueLastGroupEmpty(t *testing.T) {
-	q := &Queue{}
-	assert.Equal(t, "", q.LastGroup())
+func TestDequeLastGroupEmpty(t *testing.T) {
+	q := &Deque{}
+	assert.Equal(t, "", q.BackGroup())
 }
 
-func TestQueueRemoveLast(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddLast("two", nil)
-	q.AddLast("three", nil)
-	v, err := q.RemoveLast()
+func TestDequeRemoveLast(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	v, err := q.PopBack()
 	assert.Equal(t, "three", v.GroupID)
 	assert.Equal(t, "two", q.last.GroupID)
 	assert.Equal(t, 2, q.Size())
 	assert.Nil(t, err)
 }
 
-func TestQueueRemoveLastOnEmpty(t *testing.T) {
-	q := &Queue{}
-	v, err := q.RemoveLast()
+func TestDequeRemoveLastOnEmpty(t *testing.T) {
+	q := &Deque{}
+	v, err := q.PopBack()
 	assert.Nil(t, v)
 	assert.Error(t, err)
 }
 
-func TestQueueRemoveLastOnSizeOne(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	v, err := q.RemoveLast()
+func TestDequeRemoveLastOnSizeOne(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	v, err := q.PopBack()
 	assert.Equal(t, "one", v.GroupID)
 	assert.Nil(t, q.last)
 	assert.Nil(t, q.first)
@@ -105,29 +105,29 @@ func TestQueueRemoveLastOnSizeOne(t *testing.T) {
 	assert.Equal(t, 0, q.Size())
 }
 
-func TestQueueAddFirst(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddLast("two", nil)
-	q.AddLast("three", nil)
-	q.AddFirst("zero", nil)
+func TestDequeAddFirst(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	q.PushFront("zero", nil)
 	assert.Equal(t, q.first.GroupID, "zero")
 	assert.Equal(t, q.last.GroupID, "three")
 	assert.Equal(t, 4, q.Size())
 }
 
-func TestQueueAddFirstOnSizeOne(t *testing.T) {
-	q := &Queue{}
-	q.AddLast("one", nil)
-	q.AddFirst("zero", nil)
+func TestDequeAddFirstOnSizeOne(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushFront("zero", nil)
 	assert.Equal(t, q.first.GroupID, "zero")
 	assert.Equal(t, q.last.GroupID, "one")
 	assert.Equal(t, 2, q.Size())
 }
 
-func TestQueueAddFirstOnEmpty(t *testing.T) {
-	q := &Queue{}
-	q.AddFirst("zero", nil)
+func TestDequeAddFirstOnEmpty(t *testing.T) {
+	q := &Deque{}
+	q.PushFront("zero", nil)
 	assert.Equal(t, q.first.GroupID, "zero")
 	assert.Equal(t, q.last.GroupID, "zero")
 	assert.Equal(t, 1, q.Size())
