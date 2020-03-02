@@ -76,6 +76,11 @@ for the `import` operation using numeric alignment files as produced by
 `import -> transalign` operations. Any grouped intervals are split back to the original
 text groups.
 
+**Example:**
+
+```
+ictools -export-type intercorp export /corpora/registry/intercorp_v12_cs /corpora/registry/intercorp_v12_en s.id /corpora/aligndef/intercorp.cs2en > orig.xml
+```
 
 
 <a name="how_to_build_ictools"></a>
