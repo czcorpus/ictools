@@ -4,6 +4,7 @@ This is a faster, less memory-consuming, integrated replacement for legacy *cali
 *compressrng.py*, *fixgaps.py*, *transalign.py* scripts used to prepare corpora alignment
 numeric data from lists of structural attribute values mapping between languages. It also fixes
 some problems with missing ranges for unaligned structures you can encounter when using the scripts above.
+In addition, it also provides an `export` function for performing reversed operations.
 
 Note: you still need *mkalign* tool distributed along with *Manatee-open* to enable corpora alignments
 in *KonText* (or NoSkE).
@@ -22,7 +23,7 @@ in *KonText* (or NoSkE).
 <a name="using_ictools"></a>
 ## Using ictools
 
-*Ictools* provide two operations:
+*Ictools* provide three operations - import, transalign and export:
 
 ### import
 
@@ -68,6 +69,12 @@ a new alignment between the two non-pivot languages.
 ictools transalign ./intercorp.pl2cs ./intercorp.en2cs > intercorp.pl2en
 ```
 
+### export
+
+The `export` operation is able to reconstruct the XML-ish source used as an input
+for the `import` operation using numeric alignment files as produced by
+`import -> transalign` operations. Any grouped intervals are split back to the original
+text groups.
 
 
 

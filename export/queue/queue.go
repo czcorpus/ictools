@@ -24,27 +24,40 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
+// Element groups items for the Deque.
+// It wraps both original numeric mapping
+// and also the first string variant of
+// a respective group ID. We say 'first'
+// because the mapping.Mapping may in
+// general represent multiple texts.
+//
 type Element struct {
 	GroupID string
 	Mapping *mapping.Mapping
 	next    *Element
 }
 
-type Queue struct {
+// Deque is a double ended queue as needed
+// by Ictools export algorithm.
+type Deque struct {
 	first *Element
 	last  *Element
 	size  int
 }
 
-func New() *Queue {
-	return new(Queue)
+// New creates a new Deque instance
+func New() *Deque {
+	return new(Deque)
 }
 
-func (q *Queue) Size() int {
+// Size returns a size of the queue.
+func (q *Deque) Size() int {
 	return q.size
 }
 
-func (q *Queue) AddLast(groupID string, mp *mapping.Mapping) {
+// PushBack adds a new item to the end of the Deque.
+// The complexity is O(1).
+func (q *Deque) PushBack(groupID string, mp *mapping.Mapping) {
 	if groupID == "" {
 		panic("")
 	}
@@ -60,40 +73,9 @@ func (q *Queue) AddLast(groupID string, mp *mapping.Mapping) {
 	q.size++
 }
 
-func (q *Queue) AddFirst(groupID string, mp *mapping.Mapping) {
-	n := &Element{GroupID: groupID, Mapping: mp, next: q.first}
-	q.first = n
-	if q.size == 0 {
-		q.last = n
-	}
-	q.size++
-}
-
-func (q *Queue) LastGroup() string {
-	if q.last != nil {
-		return q.last.GroupID
-	}
-	return ""
-}
-
-func (q *Queue) FirstGroup() string {
-	if q.first != nil {
-		return q.first.GroupID
-	}
-	return ""
-}
-
-func (q *Queue) RemoveFirst() (*Element, error) {
-	if q.first != nil {
-		v := q.first
-		q.first = q.first.next
-		q.size--
-		return v, nil
-	}
-	return nil, fmt.Errorf("Empty queue")
-}
-
-func (q *Queue) RemoveLast() (*Element, error) {
+// PopBack removes an item from the back of the
+// Deque. This operation's complexity is O(n).
+func (q *Deque) PopBack() (*Element, error) {
 	if q.first == nil {
 		return nil, fmt.Errorf("Empty queue")
 	}
@@ -114,14 +96,61 @@ func (q *Queue) RemoveLast() (*Element, error) {
 	return curr, nil
 }
 
-func (q *Queue) ForEach(fn func(groupID string, m *mapping.Mapping)) {
+// PushFront adds a new item to the front of the Deque.
+// The complexity is O(1).
+func (q *Deque) PushFront(groupID string, mp *mapping.Mapping) {
+	n := &Element{GroupID: groupID, Mapping: mp, next: q.first}
+	q.first = n
+	if q.size == 0 {
+		q.last = n
+	}
+	q.size++
+}
+
+// PopFront removes an item from the front of the Deque.
+// The complexity is O(1).
+func (q *Deque) PopFront() (*Element, error) {
+	if q.first != nil {
+		v := q.first
+		q.first = q.first.next
+		q.size--
+		return v, nil
+	}
+	return nil, fmt.Errorf("Empty queue")
+}
+
+// BackGroup returns a group identifier of the
+// item at the back of the Deque. In case of
+// an empty Deque, an empty string is returned.
+// The complexity is O(1).
+func (q *Deque) BackGroup() string {
+	if q.last != nil {
+		return q.last.GroupID
+	}
+	return ""
+}
+
+// FrontGroup returns a group identifier of the
+// item at the front of the Deque. In case of
+// an empty Deque, an empty string is returned.
+// The complexity is O(1).
+func (q *Deque) FrontGroup() string {
+	if q.first != nil {
+		return q.first.GroupID
+	}
+	return ""
+}
+
+// ForEach applies a provided function on all
+// the items starting from the front item.
+func (q *Deque) ForEach(fn func(groupID string, m *mapping.Mapping)) {
 	curr := q.first
 	for ; curr != nil; curr = curr.next {
 		fn(curr.GroupID, curr.Mapping)
 	}
 }
 
-func (q *Queue) String() string {
+func (q *Deque) String() string {
 	if q.size == 0 {
 		return "Queue []"
 	}

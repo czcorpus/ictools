@@ -301,7 +301,7 @@ func main() {
 				attrName:      flag.Arg(3),
 			})
 
-			export.Run(export.ExportArgs{
+			export.Run(export.RunArgs{
 				RegPath1:        regPath1,
 				Corp1:           corps.corp1,
 				Attr1:           corps.attr1,
