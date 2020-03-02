@@ -81,49 +81,54 @@ type RunArgs struct {
 // ungroupAndPushBack  ungroups (if needed) items encoded in a numeric interval specified by "item".
 // All the resulting groupIDs and *mapping.Mapping instances are then added to the back of the
 // queue 'q'.
-func ungroupAndPushBack(item *mapping.Mapping, currGroup string, groupFilter GroupFilter, q *queue.Deque, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
-	var newGroup string
+func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue.Deque, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+	var newGroup, currGroup string
 	if item.From.First == -1 {
-		prevGroupStartIdx := item.To.First
+		currGroupStartIdx := item.To.First
 		for i := item.To.First; i <= item.To.Last; i++ {
 			newGroup = groupFilter.ExtractGroupID(attr2.ID2Str(i))
-			if newGroup != "" && newGroup != currGroup {
-				q.PushBack(newGroup, &mapping.Mapping{
-					From: mapping.PosRange{First: -1, Last: -1},
-					To:   mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
-				})
-				prevGroupStartIdx = i
+			if newGroup != "" {
+				if currGroup != "" && newGroup != currGroup {
+					q.PushBack(currGroup, &mapping.Mapping{
+						From: mapping.PosRange{First: -1, Last: -1},
+						To:   mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
+					})
+					currGroupStartIdx = i
+				}
 				currGroup = newGroup
 			}
 		}
 		if newGroup != "" {
 			q.PushBack(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: -1, Last: -1},
-				To:   mapping.PosRange{First: prevGroupStartIdx, Last: item.To.Last},
+				To:   mapping.PosRange{First: currGroupStartIdx, Last: item.To.Last},
 			})
 		}
 
 	} else if item.To.First == -1 {
-		prevGroupStartIdx := item.From.First
+		currGroupStartIdx := item.From.First
 		for i := item.From.First; i <= item.From.Last; i++ {
 			newGroup = groupFilter.ExtractGroupID(attr1.ID2Str(i))
-			if newGroup != "" && newGroup != currGroup {
-				q.PushBack(newGroup, &mapping.Mapping{
-					From: mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
-					To:   mapping.PosRange{First: -1, Last: -1},
-				})
-				prevGroupStartIdx = i
+			if newGroup != "" {
+				if currGroup != "" && newGroup != currGroup {
+					q.PushBack(currGroup, &mapping.Mapping{
+						From: mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
+						To:   mapping.PosRange{First: -1, Last: -1},
+					})
+					currGroupStartIdx = i
+				}
 				currGroup = newGroup
 			}
 		}
 		if newGroup != "" {
 			q.PushBack(newGroup, &mapping.Mapping{
-				From: mapping.PosRange{First: prevGroupStartIdx, Last: item.From.Last},
+				From: mapping.PosRange{First: currGroupStartIdx, Last: item.From.Last},
 				To:   mapping.PosRange{First: -1, Last: -1},
 			})
 		}
 
 	} else {
+		currGroup = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
 		q.PushBack(currGroup, item)
 	}
 }
@@ -166,12 +171,9 @@ func Run(args RunArgs) {
 		}
 		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
 		if newGroup1 != "" {
-			if currGroups.Size() == 0 {
-				currGroups.PushBack(newGroup1, &item)
-				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
-				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, &item))
-
-			} else if newGroup1 == currGroups.FrontGroup() {
+			//fmt.Println("ITEM: ", newGroup1, item)
+			//fmt.Println("    deque: ", currGroups)
+			if newGroup1 == currGroups.FrontGroup() {
 				tmp, err := currGroups.PopFront()
 				if err != nil {
 					log.Fatal("FATAL: ", err)
@@ -179,7 +181,7 @@ func Run(args RunArgs) {
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
 				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
 
-			} else if newGroup1 == currGroups.BackGroup() && currGroups.Size() > 1 {
+			} else if newGroup1 == currGroups.BackGroup() {
 				last, err := currGroups.PopBack()
 				if err != nil {
 					log.Fatal("FATAL: ", err)
@@ -191,7 +193,7 @@ func Run(args RunArgs) {
 				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
 
 			} else {
-				ungroupAndPushBack(&item, newGroup1, groupFilter, currGroups, args.Attr1, args.Attr2)
+				ungroupAndPushBack(&item, groupFilter, currGroups, args.Attr1, args.Attr2)
 			}
 		}
 	}
