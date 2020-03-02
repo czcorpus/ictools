@@ -40,7 +40,7 @@ func TestFromChan(t *testing.T) {
 	close(ch)
 
 	ans := make([]mapping.Mapping, 0, 10)
-	FromChan(ch, true, 10, 20, func(item mapping.Mapping) {
+	FromChan(ch, true, 10, 20, func(item mapping.Mapping, err *FixGapsError) {
 		ans = append(ans, item)
 	})
 

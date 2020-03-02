@@ -24,10 +24,11 @@ import (
 	"os"
 
 	"github.com/czcorpus/ictools/attrib"
+	"github.com/czcorpus/ictools/export/queue"
 	"github.com/czcorpus/ictools/mapping"
 )
 
-func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCorpus, attr2 attrib.GoPosAttr, item mapping.Mapping) string {
+func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCorpus, attr2 attrib.GoPosAttr, item *mapping.Mapping) string {
 	var lft, rgt string
 	var lftNum, rgtNum int
 
@@ -76,6 +77,64 @@ type ExportArgs struct {
 	GroupFilterType string
 }
 
+func addAndUngroup(item *mapping.Mapping, currGroup string, groupFilter GroupFilter, q *queue.Queue, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+	var newGroup string
+	if item.From.First == -1 {
+		prevGroupStartIdx := item.To.First
+		for i := item.To.First; i <= item.To.Last; i++ {
+			newGroup = groupFilter.ExtractGroupId(attr2.ID2Str(i))
+			if newGroup != "" && newGroup != currGroup {
+				q.AddLast(newGroup, &mapping.Mapping{
+					From: mapping.PosRange{First: -1, Last: -1},
+					To:   mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
+				})
+				prevGroupStartIdx = i
+				currGroup = newGroup
+			}
+		}
+		if newGroup != "" {
+			q.AddLast(newGroup, &mapping.Mapping{
+				From: mapping.PosRange{First: -1, Last: -1},
+				To:   mapping.PosRange{First: prevGroupStartIdx, Last: item.To.Last},
+			})
+		}
+
+	} else if item.To.First == -1 {
+		prevGroupStartIdx := item.From.First
+		for i := item.From.First; i <= item.From.Last; i++ {
+			newGroup = groupFilter.ExtractGroupId(attr1.ID2Str(i))
+			if newGroup != "" && newGroup != currGroup {
+				q.AddLast(newGroup, &mapping.Mapping{
+					From: mapping.PosRange{First: prevGroupStartIdx, Last: i - 1},
+					To:   mapping.PosRange{First: -1, Last: -1},
+				})
+				prevGroupStartIdx = i
+				currGroup = newGroup
+			}
+		}
+		if newGroup != "" {
+			q.AddLast(newGroup, &mapping.Mapping{
+				From: mapping.PosRange{First: prevGroupStartIdx, Last: item.From.Last},
+				To:   mapping.PosRange{First: -1, Last: -1},
+			})
+		}
+
+	} else {
+		q.AddLast(currGroup, item)
+	}
+}
+
+func getGroupIdent(item *mapping.Mapping, groupFilter GroupFilter, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) string {
+	var group string
+	if item.From.First != -1 {
+		group = groupFilter.ExtractGroupId(attr1.ID2Str(item.From.First))
+	}
+	if group == "" && item.To.First != -1 {
+		group = groupFilter.ExtractGroupId(attr2.ID2Str(item.To.First))
+	}
+	return group
+}
+
 func Run(args ExportArgs) {
 	log.Print(args.Corp1, args.Corp2)
 
@@ -89,24 +148,48 @@ func Run(args ExportArgs) {
 
 	fmt.Println("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
 	fr := bufio.NewScanner(srcFile)
-	var currGroup1, newGroup1 string
+	var newGroup1 string
+	currGroups := queue.New()
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
 		if err != nil {
 			log.Print("ERROR: ", err)
 		}
-		newGroup1 = groupFilter.ExtractGroupId(args.Attr1.ID2Str(item.From.First))
-		if newGroup1 == "" {
-			newGroup1 = groupFilter.ExtractGroupId(args.Attr2.ID2Str(item.To.First))
-		}
-		if newGroup1 != "" && newGroup1 != currGroup1 {
-			if currGroup1 != "" {
+		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
+		if newGroup1 != "" {
+			if currGroups.Size() == 0 {
+				currGroups.AddLast(newGroup1, &item)
+				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
+				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, &item))
+
+			} else if newGroup1 == currGroups.FirstGroup() {
+				tmp, err := currGroups.RemoveFirst()
+				if err != nil {
+					log.Fatal("FATAL:", err)
+				}
+				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
+				currGroups.AddFirst(newGroup1, &item) // !! here we assume that item does not contain multiple docs
+
+			} else if newGroup1 == currGroups.LastGroup() && currGroups.Size() > 1 {
+				last, err := currGroups.RemoveLast()
+				if err != nil {
+					log.Fatal("FATAL:", err)
+				}
 				fmt.Println("</linkGrp>")
+				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
+				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, last.Mapping))
+
+				currGroups.AddFirst(newGroup1, &item) // !! here we assume that item does not contain multiple docs
+
+			} else {
+				addAndUngroup(&item, newGroup1, groupFilter, currGroups, args.Attr1, args.Attr2)
 			}
-			fmt.Println(createGroupTag(lang1, lang2, newGroup1))
-			currGroup1 = newGroup1
 		}
-		fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, item))
 	}
 	fmt.Println("</linkGrp>")
+	currGroups.ForEach(func(groupID string, m *mapping.Mapping) {
+		fmt.Println(createGroupTag(lang1, lang2, groupID))
+		fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, m))
+		fmt.Println("</linkGrp>")
+	})
 }
