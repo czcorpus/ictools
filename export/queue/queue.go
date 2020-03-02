@@ -19,6 +19,7 @@ package queue
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/czcorpus/ictools/mapping"
@@ -59,7 +60,7 @@ func (q *Deque) Size() int {
 // The complexity is O(1).
 func (q *Deque) PushBack(groupID string, mp *mapping.Mapping) {
 	if groupID == "" {
-		panic("")
+		log.Fatalf("FATAL: entering empty group for mapping %v", mp)
 	}
 	n := &Element{GroupID: groupID, Mapping: mp}
 	if q.first == nil {
