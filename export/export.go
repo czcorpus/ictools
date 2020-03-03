@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/czcorpus/ictools/attrib"
 	"github.com/czcorpus/ictools/export/queue"
@@ -37,8 +38,12 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 		lftNum = 0
 
 	} else if item.From.First != item.From.Last {
-		lft = attr1.ID2Str(item.From.First) + " " + attr1.ID2Str(item.From.Last)
 		lftNum = item.From.Last - item.From.First + 1
+		items := make([]string, lftNum)
+		for i := 0; i < len(items); i++ {
+			items[i] = attr1.ID2Str(item.From.First + i)
+		}
+		lft = strings.Join(items, " ")
 
 	} else {
 		lft = attr1.ID2Str(item.From.First)
@@ -50,8 +55,12 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 		rgtNum = 0
 
 	} else if item.To.First != item.To.Last {
-		rgt = attr2.ID2Str(item.To.First) + " " + attr2.ID2Str(item.To.Last)
 		rgtNum = item.To.Last - item.To.First + 1
+		items := make([]string, rgtNum)
+		for i := 0; i < len(items); i++ {
+			items[i] = attr2.ID2Str(item.To.First + i)
+		}
+		rgt = strings.Join(items, " ")
 
 	} else {
 		rgt = attr2.ID2Str(item.To.First)
@@ -163,6 +172,7 @@ func Run(args RunArgs) {
 	fmt.Println("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
 	fr := bufio.NewScanner(srcFile)
 	var newGroup1 string
+	numGroups := 0
 	currGroups := queue.New()
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
@@ -186,11 +196,14 @@ func Run(args RunArgs) {
 				if err != nil {
 					log.Fatal("FATAL: ", err)
 				}
-				fmt.Println("</linkGrp>")
+				if numGroups > 0 {
+					fmt.Println("</linkGrp>")
+				}
 				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, last.Mapping))
 
 				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
+				numGroups++
 
 			} else {
 				ungroupAndPushBack(&item, groupFilter, currGroups, args.Attr1, args.Attr2)
