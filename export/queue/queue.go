@@ -131,6 +131,45 @@ func (q *Deque) BackGroup() string {
 	return ""
 }
 
+// TailContains tests whether a provided groupID
+// can be found starting from second item.
+// The complexity is O(n)
+func (q *Deque) TailContains(groupID string) bool {
+	if q.Size() <= 1 {
+		return false
+	}
+	for curr := q.first.next; curr != nil; curr = curr.next {
+		if curr.GroupID == groupID {
+			return true
+		}
+	}
+	return false
+}
+
+func (q *Deque) PopGroup(groupID string) (*Element, error) {
+	if q.first == nil {
+		return nil, fmt.Errorf("Empty queue")
+	}
+	var prev, curr *Element
+	for curr = q.first; curr != nil; curr = curr.next {
+		if curr.GroupID == groupID {
+			if prev != nil {
+				prev.next = curr.next
+				if q.last == curr {
+					q.last = prev
+				}
+
+			} else {
+				q.first = curr.next
+			}
+			q.size--
+			break
+		}
+		prev = curr
+	}
+	return curr, nil
+}
+
 // FrontGroup returns a group identifier of the
 // item at the front of the Deque. In case of
 // an empty Deque, an empty string is returned.

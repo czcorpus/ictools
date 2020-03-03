@@ -98,10 +98,10 @@ type RunArgs struct {
 	GroupFilterType string
 }
 
-// ungroupAndPushBack  ungroups (if needed) items encoded in a numeric interval specified by "item".
+// ungroupAndPushOp  ungroups (if needed) items encoded in a numeric interval specified by "item".
 // All the resulting groupIDs and *mapping.Mapping instances are then added to the back of the
 // queue 'q'.
-func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue.Deque, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(groupID string, mp *mapping.Mapping), attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
 	var newGroup, currGroup string
 	if item.From.First == -1 {
 		currGroupStartIdx := item.To.First
@@ -109,7 +109,7 @@ func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue
 			newGroup = groupFilter.ExtractGroupID(attr2.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					q.PushBack(currGroup, &mapping.Mapping{
+					op(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: -1, Last: -1},
 						To:   mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 					})
@@ -119,7 +119,7 @@ func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue
 			}
 		}
 		if newGroup != "" {
-			q.PushBack(newGroup, &mapping.Mapping{
+			op(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: -1, Last: -1},
 				To:   mapping.PosRange{First: currGroupStartIdx, Last: item.To.Last},
 			})
@@ -131,7 +131,7 @@ func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue
 			newGroup = groupFilter.ExtractGroupID(attr1.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					q.PushBack(currGroup, &mapping.Mapping{
+					op(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 						To:   mapping.PosRange{First: -1, Last: -1},
 					})
@@ -141,7 +141,7 @@ func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue
 			}
 		}
 		if newGroup != "" {
-			q.PushBack(newGroup, &mapping.Mapping{
+			op(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: currGroupStartIdx, Last: item.From.Last},
 				To:   mapping.PosRange{First: -1, Last: -1},
 			})
@@ -149,7 +149,7 @@ func ungroupAndPushBack(item *mapping.Mapping, groupFilter GroupFilter, q *queue
 
 	} else {
 		currGroup = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
-		q.PushBack(currGroup, item)
+		op(currGroup, item)
 	}
 }
 
@@ -192,8 +192,6 @@ func Run(args RunArgs) {
 		}
 		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
 		if newGroup1 != "" {
-			//fmt.Println("ITEM: ", newGroup1, item)
-			//fmt.Println("    deque: ", currGroups)
 			if newGroup1 == currGroups.FrontGroup() {
 				tmp, err := currGroups.PopFront()
 				if err != nil {
@@ -202,8 +200,8 @@ func Run(args RunArgs) {
 				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
 				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
 
-			} else if newGroup1 == currGroups.BackGroup() {
-				last, err := currGroups.PopBack()
+			} else if currGroups.TailContains(newGroup1) {
+				last, err := currGroups.PopGroup(newGroup1)
 				if err != nil {
 					log.Fatal("FATAL: ", err)
 				}
@@ -217,7 +215,14 @@ func Run(args RunArgs) {
 				numGroups++
 
 			} else {
-				ungroupAndPushBack(&item, groupFilter, currGroups, args.Attr1, args.Attr2)
+				if currGroups.Size() > 0 {
+					tmp, err := currGroups.PopFront()
+					if err != nil {
+						log.Fatal("FATAL: ", err)
+					}
+					fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
+				}
+				ungroupAndPushOp(&item, groupFilter, currGroups.PushBack, args.Attr1, args.Attr2)
 			}
 		}
 	}
