@@ -39,11 +39,17 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 
 	} else if item.From.First != item.From.Last {
 		lftNum = item.From.Last - item.From.First + 1
-		items := make([]string, lftNum)
-		for i := 0; i < len(items); i++ {
-			items[i] = attr1.ID2Str(item.From.First + i)
+
+		if item.To.First == -1 {
+			lft = attr1.ID2Str(item.From.First) + " " + attr1.ID2Str(item.From.Last)
+
+		} else {
+			items := make([]string, lftNum)
+			for i := 0; i < len(items); i++ {
+				items[i] = attr1.ID2Str(item.From.First + i)
+			}
+			lft = strings.Join(items, " ")
 		}
-		lft = strings.Join(items, " ")
 
 	} else {
 		lft = attr1.ID2Str(item.From.First)
@@ -56,11 +62,16 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 
 	} else if item.To.First != item.To.Last {
 		rgtNum = item.To.Last - item.To.First + 1
-		items := make([]string, rgtNum)
-		for i := 0; i < len(items); i++ {
-			items[i] = attr2.ID2Str(item.To.First + i)
+		if item.From.First == -1 {
+			rgt = attr2.ID2Str(item.To.First) + " " + attr2.ID2Str(item.To.Last)
+
+		} else {
+			items := make([]string, rgtNum)
+			for i := 0; i < len(items); i++ {
+				items[i] = attr2.ID2Str(item.To.First + i)
+			}
+			rgt = strings.Join(items, " ")
 		}
-		rgt = strings.Join(items, " ")
 
 	} else {
 		rgt = attr2.ID2Str(item.To.First)
