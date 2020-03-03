@@ -132,3 +132,63 @@ func TestDequeAddFirstOnEmpty(t *testing.T) {
 	assert.Equal(t, q.last.GroupID, "zero")
 	assert.Equal(t, 1, q.Size())
 }
+
+func TestDequeTailContains(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	assert.False(t, q.TailContains("one"))
+	assert.True(t, q.TailContains("two"))
+	assert.True(t, q.TailContains("three"))
+}
+
+func TestDequeTailContainsOnSizeOne(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	assert.False(t, q.TailContains("one"))
+}
+
+func TestDequeTailContainsOnSizeZero(t *testing.T) {
+	q := &Deque{}
+	assert.False(t, q.TailContains(""))
+}
+
+func TestDequePopGroupFromMiddle(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	v, err := q.PopGroup("two")
+	assert.Equal(t, "two", v.GroupID)
+	assert.Equal(t, 2, q.Size())
+	assert.Equal(t, "one", q.FrontGroup())
+	assert.Equal(t, "three", q.BackGroup())
+	assert.Nil(t, err)
+}
+
+func TestDequePopGroupFromStart(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	v, err := q.PopGroup("one")
+	assert.Equal(t, "one", v.GroupID)
+	assert.Equal(t, 2, q.Size())
+	assert.Equal(t, "two", q.FrontGroup())
+	assert.Equal(t, "three", q.BackGroup())
+	assert.Nil(t, err)
+}
+
+func TestDequePopGroupFromEnd(t *testing.T) {
+	q := &Deque{}
+	q.PushBack("one", nil)
+	q.PushBack("two", nil)
+	q.PushBack("three", nil)
+	v, err := q.PopGroup("three")
+	assert.Equal(t, "three", v.GroupID)
+	assert.Equal(t, 2, q.Size())
+	assert.Equal(t, "one", q.FrontGroup())
+	assert.Equal(t, "two", q.BackGroup())
+	assert.Nil(t, err)
+}
