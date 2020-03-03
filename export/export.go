@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/czcorpus/ictools/attrib"
-	"github.com/czcorpus/ictools/export/queue"
+	"github.com/czcorpus/ictools/export/gpool"
 	"github.com/czcorpus/ictools/mapping"
 )
 
@@ -98,10 +98,9 @@ type RunArgs struct {
 	GroupFilterType string
 }
 
-// ungroupAndPushOp  ungroups (if needed) items encoded in a numeric interval specified by "item".
-// All the resulting groupIDs and *mapping.Mapping instances are then added to the back of the
-// queue 'q'.
-func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(groupID string, mp *mapping.Mapping), attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+// ungroupAndAdd  ungroups (if needed) items encoded in a numeric interval specified by "item".
+// All the resulting groupIDs and *mapping.Mapping instances are then added to the pool
+func ungroupAndAdd(item *mapping.Mapping, groupFilter GroupFilter, pool *gpool.TextGroupPool, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
 	var newGroup, currGroup string
 	if item.From.First == -1 {
 		currGroupStartIdx := item.To.First
@@ -109,7 +108,7 @@ func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(gr
 			newGroup = groupFilter.ExtractGroupID(attr2.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					op(currGroup, &mapping.Mapping{
+					pool.AddGroup(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: -1, Last: -1},
 						To:   mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 					})
@@ -119,7 +118,7 @@ func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(gr
 			}
 		}
 		if newGroup != "" {
-			op(newGroup, &mapping.Mapping{
+			pool.AddGroup(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: -1, Last: -1},
 				To:   mapping.PosRange{First: currGroupStartIdx, Last: item.To.Last},
 			})
@@ -131,7 +130,7 @@ func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(gr
 			newGroup = groupFilter.ExtractGroupID(attr1.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					op(currGroup, &mapping.Mapping{
+					pool.AddGroup(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 						To:   mapping.PosRange{First: -1, Last: -1},
 					})
@@ -141,7 +140,7 @@ func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(gr
 			}
 		}
 		if newGroup != "" {
-			op(newGroup, &mapping.Mapping{
+			pool.AddGroup(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: currGroupStartIdx, Last: item.From.Last},
 				To:   mapping.PosRange{First: -1, Last: -1},
 			})
@@ -149,7 +148,7 @@ func ungroupAndPushOp(item *mapping.Mapping, groupFilter GroupFilter, op func(gr
 
 	} else {
 		currGroup = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
-		op(currGroup, item)
+		pool.AddGroup(currGroup, item)
 	}
 }
 
@@ -183,8 +182,7 @@ func Run(args RunArgs) {
 	fmt.Println("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
 	fr := bufio.NewScanner(srcFile)
 	var newGroup1 string
-	numGroups := 0
-	currGroups := queue.New()
+	currGroups := gpool.NewTextGroupPool()
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
 		if err != nil {
@@ -192,44 +190,15 @@ func Run(args RunArgs) {
 		}
 		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
 		if newGroup1 != "" {
-			if newGroup1 == currGroups.FrontGroup() {
-				tmp, err := currGroups.PopFront()
-				if err != nil {
-					log.Fatal("FATAL: ", err)
-				}
-				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
-				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
-
-			} else if currGroups.TailContains(newGroup1) {
-				last, err := currGroups.PopGroup(newGroup1)
-				if err != nil {
-					log.Fatal("FATAL: ", err)
-				}
-				if numGroups > 0 {
-					fmt.Println("</linkGrp>")
-				}
-				fmt.Println(createGroupTag(lang1, lang2, newGroup1))
-				fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, last.Mapping))
-
-				currGroups.PushFront(newGroup1, &item) // !! here we assume that item does not contain multiple docs
-				numGroups++
-
-			} else {
-				if currGroups.Size() > 0 {
-					tmp, err := currGroups.PopFront()
-					if err != nil {
-						log.Fatal("FATAL: ", err)
-					}
-					fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, tmp.Mapping))
-				}
-				ungroupAndPushOp(&item, groupFilter, currGroups.PushBack, args.Attr1, args.Attr2)
+			ungroupAndAdd(&item, groupFilter, currGroups, args.Attr1, args.Attr2)
+			for nxt := currGroups.PopNextReady(); nxt != nil; nxt = currGroups.PopNextReady() {
+				log.Print("NXT: ", nxt)
+				fmt.Println(createGroupTag(lang1, lang2, nxt.ID))
+				nxt.ForEach(func(mp *mapping.Mapping) {
+					fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, mp))
+				})
+				fmt.Println("</linkGrp>")
 			}
 		}
 	}
-	fmt.Println("</linkGrp>")
-	currGroups.ForEach(func(groupID string, m *mapping.Mapping) {
-		fmt.Println(createGroupTag(lang1, lang2, groupID))
-		fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, m))
-		fmt.Println("</linkGrp>")
-	})
 }
