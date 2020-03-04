@@ -8,7 +8,7 @@ import stat
 
 
 KNOWN_VERSIONS = {
-    '2.168.7': None,
+    '2.167.8': None,
     '2.158.8': None,
     '2.151.5': '2.36.5',
     '2.150': '2.36.5',
@@ -151,9 +151,9 @@ if __name__ == '__main__':
     argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
     args = argparser.parse_args()
 
-    print('+----------------------------------+')
-    print('| ICTOOLS build helper script v0.3 |')
-    print('+----------------------------------+')
+    print('+------------------------------------+')
+    print('| ICTOOLS build helper script v0.3.1 |')
+    print('+------------------------------------+')
 
     if args.version not in KNOWN_VERSIONS:
         print('Unsupported version: {0}. Please use one of: {1}'.format(
@@ -208,9 +208,9 @@ if __name__ == '__main__':
         pass
 
     init_sources(manatee_src)
-    build_project(manatee_src, finlib_src, manatee_lib, test=bool(args.test))
+    build_project(manatee_src, finlib_src, manatee_lib, test=args.test)
 
-    if should_generate_run_script:
+    if should_generate_run_script and not args.test:
         os.rename(rs_path, bin_path)
         with open(rs_path, 'w') as fw:
             fw.write('#!/usr/bin/env bash\n')

@@ -29,7 +29,25 @@ import (
 	"github.com/czcorpus/ictools/mapping"
 )
 
-func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCorpus, attr2 attrib.GoPosAttr, item *mapping.Mapping) string {
+func createGroupTag(lang1, lang2, ident string) string {
+	g1 := fmt.Sprintf("%s.%s-00.xml", ident, lang1)
+	g2 := fmt.Sprintf("%s.%s-00.xml", ident, lang2)
+	return fmt.Sprintf("<linkGrp toDoc=\"%s\" fromDoc=\"%s\">", g2, g1)
+}
+
+type Export struct {
+	RegPath1    string
+	Corp1       attrib.GoCorpus
+	Attr1       attrib.GoPosAttr
+	RegPath2    string
+	Corp2       attrib.GoCorpus
+	Attr2       attrib.GoPosAttr
+	MappingPath string
+	groupFilter GroupFilter
+	pool        *gpool.TextGroupPool
+}
+
+func (e *Export) createTag(item *mapping.Mapping) string {
 	var lft, rgt string
 	var lftNum, rgtNum int
 
@@ -41,18 +59,18 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 		lftNum = item.From.Last - item.From.First + 1
 
 		if item.To.First == -1 {
-			lft = attr1.ID2Str(item.From.First) + " " + attr1.ID2Str(item.From.Last)
+			lft = e.Attr1.ID2Str(item.From.First) + " " + e.Attr1.ID2Str(item.From.Last)
 
 		} else {
 			items := make([]string, lftNum)
 			for i := 0; i < len(items); i++ {
-				items[i] = attr1.ID2Str(item.From.First + i)
+				items[i] = e.Attr1.ID2Str(item.From.First + i)
 			}
 			lft = strings.Join(items, " ")
 		}
 
 	} else {
-		lft = attr1.ID2Str(item.From.First)
+		lft = e.Attr1.ID2Str(item.From.First)
 		lftNum = 1
 	}
 
@@ -63,52 +81,34 @@ func createTag(corp1 attrib.GoCorpus, attr1 attrib.GoPosAttr, corp2 attrib.GoCor
 	} else if item.To.First != item.To.Last {
 		rgtNum = item.To.Last - item.To.First + 1
 		if item.From.First == -1 {
-			rgt = attr2.ID2Str(item.To.First) + " " + attr2.ID2Str(item.To.Last)
+			rgt = e.Attr2.ID2Str(item.To.First) + " " + e.Attr2.ID2Str(item.To.Last)
 
 		} else {
 			items := make([]string, rgtNum)
 			for i := 0; i < len(items); i++ {
-				items[i] = attr2.ID2Str(item.To.First + i)
+				items[i] = e.Attr2.ID2Str(item.To.First + i)
 			}
 			rgt = strings.Join(items, " ")
 		}
 
 	} else {
-		rgt = attr2.ID2Str(item.To.First)
+		rgt = e.Attr2.ID2Str(item.To.First)
 		rgtNum = 1
 	}
 	return fmt.Sprintf("<link type=\"%d-%d\" xtargets=\"%s;%s\" status=\"man\" />", lftNum, rgtNum, lft, rgt)
 }
 
-func createGroupTag(lang1, lang2, ident string) string {
-	g1 := fmt.Sprintf("%s.%s-00.xml", ident, lang1)
-	g2 := fmt.Sprintf("%s.%s-00.xml", ident, lang2)
-	return fmt.Sprintf("<linkGrp toDoc=\"%s\" fromDoc=\"%s\">", g2, g1)
-}
-
-// RunArgs wraps all the values needed to configure the export.
-type RunArgs struct {
-	RegPath1        string
-	Corp1           attrib.GoCorpus
-	Attr1           attrib.GoPosAttr
-	RegPath2        string
-	Corp2           attrib.GoCorpus
-	Attr2           attrib.GoPosAttr
-	MappingPath     string
-	GroupFilterType string
-}
-
 // ungroupAndAdd  ungroups (if needed) items encoded in a numeric interval specified by "item".
 // All the resulting groupIDs and *mapping.Mapping instances are then added to the pool
-func ungroupAndAdd(item *mapping.Mapping, groupFilter GroupFilter, pool *gpool.TextGroupPool, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) {
+func (e *Export) ungroupAndAdd(item *mapping.Mapping) {
 	var newGroup, currGroup string
 	if item.From.First == -1 {
 		currGroupStartIdx := item.To.First
 		for i := item.To.First; i <= item.To.Last; i++ {
-			newGroup = groupFilter.ExtractGroupID(attr2.ID2Str(i))
+			newGroup = e.groupFilter.ExtractGroupID(e.Attr2.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					pool.AddGroup(currGroup, &mapping.Mapping{
+					e.pool.AddGroup(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: -1, Last: -1},
 						To:   mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 					})
@@ -118,7 +118,7 @@ func ungroupAndAdd(item *mapping.Mapping, groupFilter GroupFilter, pool *gpool.T
 			}
 		}
 		if newGroup != "" {
-			pool.AddGroup(newGroup, &mapping.Mapping{
+			e.pool.AddGroup(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: -1, Last: -1},
 				To:   mapping.PosRange{First: currGroupStartIdx, Last: item.To.Last},
 			})
@@ -127,10 +127,10 @@ func ungroupAndAdd(item *mapping.Mapping, groupFilter GroupFilter, pool *gpool.T
 	} else if item.To.First == -1 {
 		currGroupStartIdx := item.From.First
 		for i := item.From.First; i <= item.From.Last; i++ {
-			newGroup = groupFilter.ExtractGroupID(attr1.ID2Str(i))
+			newGroup = e.groupFilter.ExtractGroupID(e.Attr1.ID2Str(i))
 			if newGroup != "" {
 				if currGroup != "" && newGroup != currGroup {
-					pool.AddGroup(currGroup, &mapping.Mapping{
+					e.pool.AddGroup(currGroup, &mapping.Mapping{
 						From: mapping.PosRange{First: currGroupStartIdx, Last: i - 1},
 						To:   mapping.PosRange{First: -1, Last: -1},
 					})
@@ -140,29 +140,43 @@ func ungroupAndAdd(item *mapping.Mapping, groupFilter GroupFilter, pool *gpool.T
 			}
 		}
 		if newGroup != "" {
-			pool.AddGroup(newGroup, &mapping.Mapping{
+			e.pool.AddGroup(newGroup, &mapping.Mapping{
 				From: mapping.PosRange{First: currGroupStartIdx, Last: item.From.Last},
 				To:   mapping.PosRange{First: -1, Last: -1},
 			})
 		}
 
 	} else {
-		currGroup = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
-		pool.AddGroup(currGroup, item)
+		currGroup = e.groupFilter.ExtractGroupID(e.Attr1.ID2Str(item.From.First))
+		e.pool.AddGroup(currGroup, item)
 	}
 }
 
 // getGroupIdent extracts a respective string identifier either from attr1 (i.e. first language)
 // or attr2 (i.e. the second language).
-func getGroupIdent(item *mapping.Mapping, groupFilter GroupFilter, attr1 attrib.GoPosAttr, attr2 attrib.GoPosAttr) string {
+func (e *Export) getGroupIdent(item *mapping.Mapping) string {
 	var group string
 	if item.From.First != -1 {
-		group = groupFilter.ExtractGroupID(attr1.ID2Str(item.From.First))
+		group = e.groupFilter.ExtractGroupID(e.Attr1.ID2Str(item.From.First))
 	}
 	if group == "" && item.To.First != -1 {
-		group = groupFilter.ExtractGroupID(attr2.ID2Str(item.To.First))
+		group = e.groupFilter.ExtractGroupID(e.Attr2.ID2Str(item.To.First))
 	}
 	return group
+}
+
+func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup, ignoreEmpty bool) {
+	var bld strings.Builder
+	grp.ForEach(func(mp *mapping.Mapping) {
+		if !ignoreEmpty || (mp.From.First > -1 && mp.To.First > 1) {
+			bld.WriteString(e.createTag(mp) + "\n")
+		}
+	})
+	if bld.Len() > 0 {
+		fmt.Println(createGroupTag(lang1, lang2, grp.ID))
+		fmt.Print(bld.String())
+		fmt.Println("</linkGrp>")
+	}
 }
 
 // Run generates a XML-ish output with the same format as the one
@@ -170,35 +184,33 @@ func getGroupIdent(item *mapping.Mapping, groupFilter GroupFilter, attr1 attrib.
 // The algorithm is able to ungroup 'compressed' numeric intervals
 // so if an interval contains multiple texts - all of them should
 // be written to the output.
-func Run(args RunArgs) {
-	srcFile, err := os.Open(args.MappingPath)
+func (e *Export) Run(regPath1, regPath2, exportType string, skipEmpty bool) {
+	srcFile, err := os.Open(e.MappingPath)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}
-	groupFilter := NewGroupFilter(args.GroupFilterType)
-	lang1 := groupFilter.ExtractLangFromRegistry(args.RegPath1)
-	lang2 := groupFilter.ExtractLangFromRegistry(args.RegPath2)
+	e.groupFilter = NewGroupFilter(exportType)
+	lang1 := e.groupFilter.ExtractLangFromRegistry(regPath1)
+	lang2 := e.groupFilter.ExtractLangFromRegistry(regPath2)
 
 	fmt.Println("<?xml version=\"1.0\" encoding=\"utf-8\"?>")
 	fr := bufio.NewScanner(srcFile)
 	var newGroup1 string
-	currGroups := gpool.NewTextGroupPool()
+	e.pool = gpool.NewTextGroupPool()
 	for i := 0; fr.Scan(); i++ {
 		item, err := mapping.NewMappingFromString(fr.Text())
 		if err != nil {
 			log.Print("ERROR: ", err)
 		}
-		newGroup1 = getGroupIdent(&item, groupFilter, args.Attr1, args.Attr2)
+		newGroup1 = e.getGroupIdent(&item)
 		if newGroup1 != "" {
-			ungroupAndAdd(&item, groupFilter, currGroups, args.Attr1, args.Attr2)
-			for nxt := currGroups.PopNextReady(); nxt != nil; nxt = currGroups.PopNextReady() {
-				log.Print("NXT: ", nxt)
-				fmt.Println(createGroupTag(lang1, lang2, nxt.ID))
-				nxt.ForEach(func(mp *mapping.Mapping) {
-					fmt.Println(createTag(args.Corp1, args.Attr1, args.Corp2, args.Attr2, mp))
-				})
-				fmt.Println("</linkGrp>")
+			e.ungroupAndAdd(&item)
+			for nxt := e.pool.PopNextReady(); nxt != nil; nxt = e.pool.PopNextReady() {
+				e.printGroup(lang1, lang2, nxt, skipEmpty)
 			}
 		}
+	}
+	for nxt := e.pool.PopOldest(); nxt != nil; nxt = e.pool.PopOldest() {
+		e.printGroup(lang1, lang2, nxt, skipEmpty)
 	}
 }

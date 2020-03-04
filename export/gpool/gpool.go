@@ -44,16 +44,11 @@ func (tgp *TextGroupPool) AddGroup(groupID string, m *mapping.Mapping) {
 	}
 }
 
-// PopNextReady removes and returns the oldest text group which last
-// change is more than 3 group changes old (which should be
-// OK for how ictools generate numeric alignments).
-//
-// In case no group matches the crieria, nil is returned
-func (tgp *TextGroupPool) PopNextReady() *TextGroup {
+func (tgp *TextGroupPool) popNextByLastChange(stepsUnchanged int) *TextGroup {
 	minFound := tgp.numGroupSwitches
 	var minKey string
 	for k, v := range tgp.data {
-		if tgp.numGroupSwitches-v.stepLast >= 3 && v.stepFound <= minFound {
+		if tgp.numGroupSwitches-v.stepLast >= stepsUnchanged && v.stepFound <= minFound {
 			minFound = v.stepFound
 			minKey = k
 		}
@@ -64,6 +59,21 @@ func (tgp *TextGroupPool) PopNextReady() *TextGroup {
 		return ans
 	}
 	return nil
+}
+
+// PopNextReady removes and returns the oldest text group which last
+// change is more than 3 group changes old (which should be
+// OK for how ictools generate numeric alignments).
+//
+// In case no group matches the crieria, nil is returned
+func (tgp *TextGroupPool) PopNextReady() *TextGroup {
+	return tgp.popNextByLastChange(3)
+}
+
+// PopOldest removes and returns the oldest text group
+// no matter what was its last change
+func (tgp *TextGroupPool) PopOldest() *TextGroup {
+	return tgp.popNextByLastChange(0)
 }
 
 // Size returns number of text groups
