@@ -165,12 +165,18 @@ func (e *Export) getGroupIdent(item *mapping.Mapping) string {
 	return group
 }
 
-func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup) {
-	fmt.Println(createGroupTag(lang1, lang2, grp.ID))
+func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup, ignoreEmpty bool) {
+	var bld strings.Builder
 	grp.ForEach(func(mp *mapping.Mapping) {
-		fmt.Println(e.createTag(mp))
+		if !ignoreEmpty || (mp.From.First > -1 && mp.To.First > 1) {
+			bld.WriteString(e.createTag(mp) + "\n")
+		}
 	})
-	fmt.Println("</linkGrp>")
+	if bld.Len() > 0 {
+		fmt.Println(createGroupTag(lang1, lang2, grp.ID))
+		fmt.Print(bld.String())
+		fmt.Println("</linkGrp>")
+	}
 }
 
 // Run generates a XML-ish output with the same format as the one
@@ -178,7 +184,7 @@ func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup) {
 // The algorithm is able to ungroup 'compressed' numeric intervals
 // so if an interval contains multiple texts - all of them should
 // be written to the output.
-func (e *Export) Run(regPath1, regPath2, exportType string) {
+func (e *Export) Run(regPath1, regPath2, exportType string, skipEmpty bool) {
 	srcFile, err := os.Open(e.MappingPath)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
@@ -200,11 +206,11 @@ func (e *Export) Run(regPath1, regPath2, exportType string) {
 		if newGroup1 != "" {
 			e.ungroupAndAdd(&item)
 			for nxt := e.pool.PopNextReady(); nxt != nil; nxt = e.pool.PopNextReady() {
-				e.printGroup(lang1, lang2, nxt)
+				e.printGroup(lang1, lang2, nxt, skipEmpty)
 			}
 		}
 	}
 	for nxt := e.pool.PopOldest(); nxt != nil; nxt = e.pool.PopOldest() {
-		e.printGroup(lang1, lang2, nxt)
+		e.printGroup(lang1, lang2, nxt, skipEmpty)
 	}
 }
