@@ -300,17 +300,16 @@ func main() {
 				registryPath2: regPath2,
 				attrName:      flag.Arg(3),
 			})
-
-			export.Run(export.RunArgs{
-				RegPath1:        regPath1,
-				Corp1:           corps.corp1,
-				Attr1:           corps.attr1,
-				RegPath2:        regPath2,
-				Corp2:           corps.corp2,
-				Attr2:           corps.attr2,
-				MappingPath:     flag.Arg(4),
-				GroupFilterType: exportType,
-			})
+			export := export.Export{
+				RegPath1:    regPath1,
+				Corp1:       corps.corp1,
+				Attr1:       corps.attr1,
+				RegPath2:    regPath2,
+				Corp2:       corps.corp2,
+				Attr2:       corps.attr2,
+				MappingPath: flag.Arg(4),
+			}
+			export.Run(regPath1, regPath2, exportType)
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}
