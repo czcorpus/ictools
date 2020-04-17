@@ -47,55 +47,78 @@ type Export struct {
 	pool        *gpool.TextGroupPool
 }
 
-func (e *Export) createTag(item *mapping.Mapping) string {
-	var lft, rgt string
-	var lftNum, rgtNum int
+func (e *Export) createPosRange(rng *mapping.PosRange, attr attrib.GoPosAttr, itemize bool) []string {
+	if itemize {
+		items := make([]string, rng.Last-rng.First+1)
+		for i := 0; i < len(items); i++ {
+			items[i] = attr.ID2Str(rng.First + i)
+		}
+		return items
+	}
+	return []string{attr.ID2Str(rng.First), attr.ID2Str(rng.Last)}
+}
+
+func (e *Export) createTag(item *mapping.Mapping, exportType string) []string {
+	var lft, rgt []string
+	var lftArity, rgtArity int
 
 	if item.From.First == -1 {
-		lft = ""
-		lftNum = 0
+		lft = []string{}
+		lftArity = 0
 
 	} else if item.From.First != item.From.Last {
-		lftNum = item.From.Last - item.From.First + 1
+		lftArity = item.From.Last - item.From.First + 1
 
 		if item.To.First == -1 {
-			lft = e.Attr1.ID2Str(item.From.First) + " " + e.Attr1.ID2Str(item.From.Last)
+			lft = e.createPosRange(&item.From, e.Attr1, exportType == "intercorp")
 
 		} else {
-			items := make([]string, lftNum)
-			for i := 0; i < len(items); i++ {
-				items[i] = e.Attr1.ID2Str(item.From.First + i)
-			}
-			lft = strings.Join(items, " ")
+			lft = e.createPosRange(&item.From, e.Attr1, false)
 		}
 
 	} else {
-		lft = e.Attr1.ID2Str(item.From.First)
-		lftNum = 1
+		lft = []string{e.Attr1.ID2Str(item.From.First)}
 	}
 
 	if item.To.First == -1 {
-		rgt = ""
-		rgtNum = 0
+		rgt = []string{}
+		rgtArity = 0
 
 	} else if item.To.First != item.To.Last {
-		rgtNum = item.To.Last - item.To.First + 1
+		rgtArity = item.To.Last - item.To.First + 1
+
 		if item.From.First == -1 {
-			rgt = e.Attr2.ID2Str(item.To.First) + " " + e.Attr2.ID2Str(item.To.Last)
+			rgt = e.createPosRange(&item.To, e.Attr2, exportType == "intercorp")
 
 		} else {
-			items := make([]string, rgtNum)
-			for i := 0; i < len(items); i++ {
-				items[i] = e.Attr2.ID2Str(item.To.First + i)
-			}
-			rgt = strings.Join(items, " ")
+			rgt = e.createPosRange(&item.To, e.Attr2, false)
 		}
 
 	} else {
-		rgt = e.Attr2.ID2Str(item.To.First)
-		rgtNum = 1
+		rgt = []string{e.Attr2.ID2Str(item.To.First)}
+		rgtArity = 1
 	}
-	return fmt.Sprintf("<link type=\"%d-%d\" xtargets=\"%s;%s\" status=\"man\" />", lftNum, rgtNum, lft, rgt)
+
+	if item.From.First == -1 {
+		ans := make([]string, len(rgt))
+		for i, rgtItem := range rgt {
+			ans[i] = fmt.Sprintf("<link type=\"0-1\" xtargets=\";%s\" status=\"man\" />", rgtItem)
+		}
+		return ans
+	}
+	if item.To.First == -1 {
+		ans := make([]string, len(lft))
+		for i, lftItem := range lft {
+			ans[i] = fmt.Sprintf("<link type=\"1-0\" xtargets=\"%s;\" status=\"man\" />", lftItem)
+		}
+		return ans
+	}
+	if len(lft) <= 2 && len(rgt) <= 2 {
+		return []string{fmt.Sprintf("<link type=\"%d-%d\" xtargets=\"%s;%s\" status=\"man\" />",
+			lftArity, rgtArity, strings.Join(lft, " "), strings.Join(rgt, " "))}
+	}
+	log.Print("WARNING: returning empty range - this should not happen ", item)
+	return []string{}
 }
 
 // ungroupAndAdd  ungroups (if needed) items encoded in a numeric interval specified by "item".
@@ -165,11 +188,13 @@ func (e *Export) getGroupIdent(item *mapping.Mapping) string {
 	return group
 }
 
-func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup, ignoreEmpty bool) {
+func (e *Export) printGroup(lang1, lang2 string, grp *gpool.TextGroup, ignoreEmpty bool, exportType string) {
 	var bld strings.Builder
 	grp.ForEach(func(mp *mapping.Mapping) {
 		if !ignoreEmpty || (mp.From.First > -1 && mp.To.First > 1) {
-			bld.WriteString(e.createTag(mp) + "\n")
+			for _, line := range e.createTag(mp, exportType) {
+				bld.WriteString(line + "\n")
+			}
 		}
 	})
 	if bld.Len() > 0 {
@@ -206,11 +231,11 @@ func (e *Export) Run(regPath1, regPath2, exportType string, skipEmpty bool) {
 		if newGroup1 != "" {
 			e.ungroupAndAdd(&item)
 			for nxt := e.pool.PopNextReady(); nxt != nil; nxt = e.pool.PopNextReady() {
-				e.printGroup(lang1, lang2, nxt, skipEmpty)
+				e.printGroup(lang1, lang2, nxt, skipEmpty, exportType)
 			}
 		}
 	}
 	for nxt := e.pool.PopOldest(); nxt != nil; nxt = e.pool.PopOldest() {
-		e.printGroup(lang1, lang2, nxt, skipEmpty)
+		e.printGroup(lang1, lang2, nxt, skipEmpty, exportType)
 	}
 }
