@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	// GroupFilterTypeIntercorp represents a filter for CNC'c InterCorp
+	// ExportTypeIntercorp represents a filter for CNC'c InterCorp
 	// corpora with their well established rules on how to identify idividual
 	// sentences.
-	GroupFilterTypeIntercorp = "intercorp"
+	ExportTypeIntercorp = "intercorp"
 )
 
 var (
@@ -96,7 +96,7 @@ func (f *FilterEmpty) ExtractLangFromRegistry(regPath string) string {
 // NewGroupFilter is a factory for GroupFilter instances
 func NewGroupFilter(ftype string) GroupFilter {
 	switch ftype {
-	case GroupFilterTypeIntercorp:
+	case ExportTypeIntercorp:
 		return &FilterIntercorp{srch: intercorpPattern}
 	}
 	return &FilterEmpty{}

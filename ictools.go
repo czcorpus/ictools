@@ -264,7 +264,7 @@ func main() {
 	flag.IntVar(&quoteStyle, "quote-style", 1, "Input XML quote style: 1 - single, 2 - double")
 	var exportType string
 	flag.StringVar(&exportType, "export-type", "",
-		fmt.Sprintf("Select specific tools to export data. Currently supported types: %s", export.GroupFilterTypeIntercorp))
+		fmt.Sprintf("Select specific tools to export data. Currently supported types: %s", export.ExportTypeIntercorp))
 	var skipEmpty bool
 	flag.BoolVar(&skipEmpty, "skip-empty", false, "If set then ignore any alignment of type [-1, X] or [X, -1]")
 
