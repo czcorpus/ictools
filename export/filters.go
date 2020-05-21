@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	intercorpPattern = regexp.MustCompile("^(\\w{2}):([\\w\\d_-]+):(\\d+):(\\d+):(\\d+)$")
+	intercorpPattern = regexp.MustCompile("^(\\w{2}):([\\w\\d_-]+):([\\w\\d_-]+):(\\d+):(\\d+)$")
 )
 
 // GroupFilter specifies an object able to extract group identifiers
