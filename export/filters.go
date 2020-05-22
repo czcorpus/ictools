@@ -18,6 +18,7 @@
 package export
 
 import (
+	"log"
 	"path/filepath"
 	"regexp"
 )
@@ -29,8 +30,8 @@ const (
 	ExportTypeIntercorp = "intercorp"
 )
 
-var (
-	intercorpPattern = regexp.MustCompile("^(\\w{2}):([\\w\\d_-]+):([\\w\\d_-]+):(\\d+):(\\d+)$")
+var ( //                                        lang:package___________:section___________:sect__:subsect
+	intercorpPattern = regexp.MustCompile("^(\\w{2}):([\\w\\d_\\-\\.\\#]+):([\\w\\d_\\-\\.\\#]+):(\\d+):(\\d+)(:\\d+)?$")
 )
 
 // GroupFilter specifies an object able to extract group identifiers
@@ -65,6 +66,7 @@ func (f *FilterIntercorp) ExtractGroupID(recID string) string {
 	if len(srch) > 0 {
 		return srch[2]
 	}
+	log.Print("WARNING: failed to extract doc ID from: ", recID)
 	return ""
 }
 
