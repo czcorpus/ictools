@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import re
 import sys
 import os
@@ -11,12 +11,7 @@ APP_NAME = 'ictools'
 
 KNOWN_VERSIONS = {
     '2.167.8': None,
-    '2.158.8': None,
-    '2.151.5': '2.36.5',
-    '2.150': '2.36.5',
-    '2.139.3': '2.35.2',
-    '2.137.2': '2.35.1',
-    '2.130.6': '2.33.1'
+    '2.167.10': None
 }
 
 class NoManatee(object):
@@ -119,6 +114,8 @@ def get_current_datetime():
 
 def init_sources(manatee_src):
     if not os.path.isfile(os.path.join(manatee_src, 'config.hh')):
+        env = dict(os.environ)
+        env['PYTHON'] = '/usr/bin/python3'
         subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
         subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
 
@@ -126,7 +123,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, manatee_ver, test=False)
     ver = get_version_info()
     commit = get_commit_info()
     dt = get_current_datetime()
-    LDFLAGS = '-w -s -X main.version="{}" -X main.buildDate="{}" -X main.gitCommit="{}" -X main.manateeVersion="{}"'.format(ver, dt, commit, manatee_ver)
+    LDFLAGS = f'-w -s -X main.version="{ver}" -X main.buildDate="{dt}" -X main.gitCommit="{commit}" -X main.manateeVersion="{manatee_ver}"'
 
     if finlib_src:
         build_env = {
@@ -146,7 +143,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, manatee_ver, test=False)
         print('Running TESTS:\n')
         p = subprocess.Popen('go test ./...', shell=True, env=env, executable='/bin/bash')
     else:
-        p = subprocess.Popen(['go build -ldflags "{}"'.format(LDFLAGS)], shell=True, env=env, executable='/bin/bash')
+        p = subprocess.Popen([f'go build -ldflags "{LDFLAGS}"'], shell=True, env=env, executable='/bin/bash')
     p.wait()
 
 def list_supported_versions():
@@ -174,9 +171,9 @@ if __name__ == '__main__':
     argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
     args = argparser.parse_args()
 
-    print('+-----------------------------------------+')
-    print('| Manatee+GO build helper script v0.6-py2 |')
-    print('+-----------------------------------------+')
+    print('+-------------------------------------+')
+    print('| Manatee+GO build helper script v0.6 |')
+    print('+-------------------------------------+')
 
     if args.version not in KNOWN_VERSIONS:
         print('Unsupported version: {0}. Please use one of: {1}'.format(
@@ -240,7 +237,7 @@ if __name__ == '__main__':
             fw.write('MYSELF=`which "$0" 2>/dev/null`\n')
             fw.write('export LD_LIBRARY_PATH="{0}"\n'.format(manatee_lib))
             fw.write('`dirname $0`/{0}.bin "${{@:1}}"\n'.format(APP_NAME))
-        os.chmod(rs_path, 0775)
+        os.chmod(rs_path, 0o0775)
         print('\nGenerated run script to handle non-standard libmanatee.so location.')
         print('\nTo install the application, copy files {0}.bin and {0}'.format(APP_NAME))
         print('to a system searched path (recommended: /usr/local/bin).')
