@@ -40,6 +40,13 @@ const (
 	defaultChanBufferSize = 5000
 )
 
+var (
+	version        string
+	buildDate      string
+	gitCommit      string
+	manateeVersion string
+)
+
 type calignArgs struct {
 	registryPath1   string
 	registryPath2   string
@@ -254,6 +261,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [LANG1-PIVOT alignment file] [LANG2-PIVOT alignment file]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] search [LANG registry] [attr] [srch position]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] export [LANG1 registry] [LANG2 registry] [attr] [LANG1-LANG2 numeric mapping file]\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s version", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var lineBufferSize int
@@ -312,6 +320,9 @@ func main() {
 				MappingPath: flag.Arg(4),
 			}
 			export.Run(regPath1, regPath2, exportType, skipEmpty)
+		case "version":
+			fmt.Printf("%s (Manatee: %s, build date: %s, last commit: %s)\n", version, manateeVersion, buildDate, gitCommit)
+			return
 		default:
 			log.Fatalf("FATAL: Unknown action '%s'", flag.Arg(0))
 		}
