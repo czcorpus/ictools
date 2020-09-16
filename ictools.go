@@ -261,7 +261,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\t%s [options] transalign [LANG1-PIVOT alignment file] [LANG2-PIVOT alignment file]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] search [LANG registry] [attr] [srch position]\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "\t%s [options] export [LANG1 registry] [LANG2 registry] [attr] [LANG1-LANG2 numeric mapping file]\n", filepath.Base(os.Args[0]))
-		fmt.Fprintf(os.Stderr, "\t%s version", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "\t%s version\n", filepath.Base(os.Args[0]))
 		flag.PrintDefaults()
 	}
 	var lineBufferSize int
