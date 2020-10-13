@@ -78,6 +78,7 @@ func (e *Export) createTag(item *mapping.Mapping, exportType string) []string {
 
 	} else {
 		lft = []string{e.Attr1.ID2Str(item.From.First)}
+		lftArity = 1
 	}
 
 	if item.To.First == -1 {
@@ -179,6 +180,7 @@ func (e *Export) ungroupAndAdd(item *mapping.Mapping) {
 // or attr2 (i.e. the second language).
 func (e *Export) getGroupIdent(item *mapping.Mapping) string {
 	var group string
+
 	if item.From.First != -1 {
 		group = e.groupFilter.ExtractGroupID(e.Attr1.ID2Str(item.From.First))
 	}
