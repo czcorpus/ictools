@@ -221,7 +221,7 @@ func runImport(args calignArgs) {
 		fixgaps.FromChan(ch1, true, s1Size, s2Size, func(item mapping.Mapping, err *fixgaps.FixGapsError) {
 			if err != nil {
 				log.Print("ERROR: ", err)
-				log.Printf("INFO: original struct idents are: item: [%s, %s -- %s, %s], reached positions: [%s, %s]",
+				log.Printf("INFO: original structure identifiers are: item: [%s, %s -- %s, %s], reached positions: [%s, %s]",
 					corps.attr1.ID2Str(err.Item.From.First), corps.attr1.ID2Str(err.Item.From.Last),
 					corps.attr2.ID2Str(err.Item.To.First), corps.attr2.ID2Str(err.Item.To.Last),
 					corps.attr1.ID2Str(err.Left), corps.attr2.ID2Str(err.Pivot))
