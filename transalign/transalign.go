@@ -27,15 +27,24 @@ import (
 )
 
 // fetchRow sets new language range and pivot range for provided langPos, pivotPos
-// arguments using data on line langIdx
-func fetchRow(langIdx int, langPos *mapping.PosRange, pivotPos *mapping.PosRange, pm *PivotMapping) {
+// arguments using PivotMapping data on line langIdx.
+// It returns true in case there was a range information available at the langIdx index.
+// Otherwise (if langIdx > length of pm.ranges data), false is returned which
+// means that the caller reached the end of data.
+func fetchRow(
+	langIdx int,
+	langPos *mapping.PosRange,
+	pivotPos *mapping.PosRange,
+	pm *PivotMapping,
+) bool {
 	if langIdx >= len(pm.ranges) {
-		return
+		return false
 	}
 	langPos.First = pm.ranges[langIdx].First
 	langPos.Last = pm.ranges[langIdx].Last
 	pivotPos.First = pm.pivots[langIdx].First
 	pivotPos.Last = pm.pivots[langIdx].Last
+	return true
 }
 
 // appendRow extends provided langPos, pivotPos using data loaded from line langIdx
@@ -83,10 +92,11 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 	mapL1L2 := make([]mapping.Mapping, 0, pivotMapping1.Size())      // TODO size estimation
 	mapNoneL2 := make([]mapping.Mapping, 0, pivotMapping1.Size()/10) // 10 is just an estimate
 
-	fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
-	fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+	l1FetchOK := fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+	l2FetchOK := fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
-	for l1Idx < pivotMapping1.Size() || l2Idx < pivotMapping2.Size() {
+	//for l1Idx < pivotMapping1.Size() || l2Idx < pivotMapping2.Size() {
+	for l1FetchOK && l2FetchOK {
 		if p1Pos.First < p2Pos.First { // must align beginning of pivots
 			if p1Pos.Last == -1 {
 				mapL1L2 = addMapping(mapL1L2, mapping.Mapping{
@@ -95,7 +105,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 				})
 			}
 			l1Idx++
-			fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+			l1FetchOK = fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 
 		} else if p1Pos.First > p2Pos.First { // must align beginning of pivots
 			if p2Pos.Last == -1 {
@@ -105,7 +115,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 				})
 			}
 			l2Idx++
-			fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+			l2FetchOK = fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 		} else { // pivots start at the same position; now try to align end positions
 			if p1Pos.Last > p2Pos.Last {
@@ -115,7 +125,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 						To:   l2Pos,
 					})
 					l2Idx++
-					fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+					l2FetchOK = fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 					// a correction to keep pivots aligned (a spec. situation)
 					// but we're losing compression here (TODO improve)
 					p1Pos.First = p2Pos.First
@@ -132,7 +142,7 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 						To:   mapping.NewEmptyPosRange(),
 					})
 					l1Idx++
-					fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+					l1FetchOK = fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 					p2Pos.First = p1Pos.First // a correction to keep pivots aligned (a spec. situation)
 
 				} else {
@@ -150,9 +160,9 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 					To:   l2Pos,
 				})
 				l1Idx++
-				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				l1FetchOK = fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 				l2Idx++
-				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+				l2FetchOK = fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			} else {
 				if l1Pos.First != -1 {
@@ -168,9 +178,9 @@ func Run(pivotMapping1 *PivotMapping, pivotMapping2 *PivotMapping, onItem func(m
 					})
 				}
 				l1Idx++
-				fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
+				l1FetchOK = fetchRow(l1Idx, &l1Pos, &p1Pos, pivotMapping1)
 				l2Idx++
-				fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
+				l2FetchOK = fetchRow(l2Idx, &l2Pos, &p2Pos, pivotMapping2)
 
 			}
 		}
