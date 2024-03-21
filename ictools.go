@@ -252,7 +252,7 @@ func runImport(args calignArgs) {
 
 func runSearch(corpusRegistry string, attr string, itemIdx int) {
 	attrObj := openAttribute(corpusRegistry, attr)
-	fmt.Printf("\n\nPosition %d -> %s\n\n", itemIdx, attrObj.ID2Str(itemIdx))
+	fmt.Printf("\n\nPosition #%d: %s\n\n", itemIdx, attrObj.ID2Str(itemIdx))
 }
 
 func main() {

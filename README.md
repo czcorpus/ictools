@@ -86,83 +86,19 @@ ictools -export-type intercorp export /corpora/registry/intercorp_v12_cs /corpor
 <a name="how_to_build_ictools"></a>
 ## How to build ictools
 
-To build ictools, a working installation of Manatee(-open) must be installed on your system.
-This includes not just *libmanatee.so* shared library but also source header files for both
-Manatee(-open) and Finlib. Please note that Manatee starting from 2.158.8 includes Finlib so
-there is no need to build Finlib separately. A working Go language environment is also required
-(see [install instructions](https://golang.org/doc/install)).
-
-Download ictools package:
-
-```bash
-go get -d https://github.com/czcorpus/ictools
-```
-
-<a name="how_to_build_ictools_helper_script"></a>
-### build helper script
-
-*Ictools* are written to work directly with [Manatee-open](https://nlp.fi.muni.cz/trac/noske) library which
-itself is written in C++. This makes the build process a little more complicated then just `go get ...` or `go build`.
-
-*Ictools* come with a simple *build* script (written in Python 2) which is able to handle all the details
-for you. In the best scenario, the script requires only Manatee-open version you are building against. It tries to
-find the library in system lib paths and download sources from Manatee-open project page. In case you have your Manatee-open installed in a non-standard location, you have to tell the script with `--manatee-lib` parameter. Also, if you already have Manatee-open sources downloaded, you can skip the download by specifying source directory
-via `--manatee-src` (or `--finlib-src`).
-
-Let's say you have Manatee-open 2.150 installed on your system. Then just enter:
-
-```bash
-./build 2.150
-```
-
-The script looks for `libmanatee.so` in typical locations (`/usr/lib` and `/usr/local/lib`) and
-downloads sources for `Manatee-open` and matching `Finlib` version.
-
-In case your Manatee installation resides in a custom directory, you must specify it yourself:
+ICTools come with [manabuild](https://github.com/czcorpus/manabuild) as its dependency. So in case you have
+ `~/go/bin` in your `$PATH`, everything needed to build `ictools` is:
 
 ```
-./build 2.150 --manatee-lib /opt/manatee-2.150/lib
+manabuild
 ```
 
-In both cases, the *build* script assumes that the version of the specified (or automatically found)
-Manatee library and the version entered as the first argument (here 2.150) match together.
+In case Manabuild finds Manatee-open in a non-standard location where system does not look for libraries,
+it produces `ictools.bin` with actual ICTools binary and `ictools` which is a short Bash script
+to set `LD_LIBRARY_PATH` to the path Manabuild found Manatee in and to start the binary. So in this case,
+two files must be moved (or copied) to a target installation location (e.g. `/usr/local/bin`).s
 
-Script finishes in one of two possible result states:
 
-* Two created files: *ictools* (a bootstrap script), *ictools.bin* (a binary executable). This means that *LD_LIBRARY_PATH* must be set for *ictools* because of a non-standard location of *libmanatee.so*. You can just copy these files to */usr/local/bin*
-  and refer the program as *ictools*.
-* One file: *ictools* (a binary executable) in case of standard system installation of *libmanatee.so* (i.e. the
-  operating system is able to locate *libmanatee.so* by itself).
-
-<a name="how_to_build_ictools_manual_variant"></a>
-### manual variant
-
-In many cases, simple `go build` won't work because of missing header files and/or non-standard
-*libmanatee.so* location. In such case you have to specify all the locations by yourself when
-building the project:
-
-```bash
-CGO_CPPFLAGS="-I/path/to/manatee/src -I/path/to/finlib/src" CGO_LDFLAGS="-lmanatee -L/path/to/manatee/lib/dir" go build
-```
-
-In case you have installed *manatee-open* to a non-standard directory, then you have to tell the OS where to look
-for *libmanatee*:
-
-```
-LD_LIBRARY_PATH="/path/to/libmanatee.so/dir" ./ictools
-```
-
-or you can write a simple start script:
-
-```bash
-#!/usr/bin/env bash
-export LD_LIBRARY_PATH="/path/to/libmanatee.so/dir"
-`dirname $0`/ictools "${@:1}"
-```
-
-In case your have `$GOPATH/bin` in your `$PATH` you are ready to go. Otherwise you can copy the
-compiled binary to a location like `/usr/local/bin` to be able to call it without referring its full
-path.
 
 <a name="benchmark"></a>
 ## Benchmark
@@ -202,6 +138,14 @@ to the output without any unnecessary memory allocation.
 <a name="for_developers_setting_up_vscode"></a>
 ### Setting up VSCode debugging/testing environment
 
+Run
+
+```
+manabuild -no-build
+```
+
+and copy `CGO_CPPFLAGS=...`, `CGO_CPPFLAGS=...` and `CGO_CXXFLAGS=...`.
+
 Open *debug* environment (left column) and click the "gear" button to edit *launch.json*. Then
 set proper environment variables (just like in the previous paragraph).
 
@@ -212,8 +156,9 @@ set proper environment variables (just like in the previous paragraph).
     {
       " ....  parts are omitted here ... " : " ... ",
       "env": {
-          "CGO_LDFLAGS": "-lmanatee -L/usr/local/lib",
-          "CGO_CPPFLAGS": "-I/tmp/manatee-open-2.158.8"
+          "CGO_LDFLAGS": "...",
+          "CGO_CPPFLAGS": "...",
+          "CGO_CXXFLAGS": "..."
       },
       " ....  parts are omitted here ... " : " ... ",
     }
@@ -221,20 +166,12 @@ set proper environment variables (just like in the previous paragraph).
 }
 ```
 
+Where the env. variables part is the one copied in the previous step.
+
 
 <a name="for_developers_running_tests"></a>
 ### Running tests
 
-To run the tests, add `--test` argument when running the *build* script. All the other parameters
-must be set in the same way as when building the project. E.g.:
-
 ```
-./build 2.150 --manatee-lib /opt/manatee-2.150/lib --test
-```
-
-To run  tests manually try to use `./build` script first to find out what are the values
-of `CGO_LDFLAGS` and `CGO_CPPFLAGS` variables and then use them like this:
-
-```
-CGO_LDFLAGS="-lmanatee -L/usr/local/lib" CGO_CPPFLAGS="-I/tmp/manatee-open-2.158.8" go test ./...
+manabuild -test
 ```
