@@ -29,7 +29,10 @@ using namespace std;
 
 AttrRetval get_attr(CorpusV corp, const char* attrName) {
     string tmp(attrName);
-    AttrRetval ans;
+    AttrRetval ans {
+        nullptr,
+        nullptr
+    };
     try {
         PosAttrV attr = ((Corpus*)corp)->get_attr(tmp);
         ans.value = attr;
@@ -51,7 +54,10 @@ const char* attr_id2str(PosAttrV attr, long ident) {
 
 StructSizeRetval get_struct_size(CorpusV corpus, const char* structName) {
     string tmp(structName);
-    StructSizeRetval ans;
+    StructSizeRetval ans {
+        0,
+        nullptr
+    };
     try {
         StructV strct = ((Corpus*)corpus)->get_struct(tmp);
         ans.value = ((Structure *)strct)->size();
@@ -65,7 +71,10 @@ StructSizeRetval get_struct_size(CorpusV corpus, const char* structName) {
 
 CorpusRetval open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
-    CorpusRetval ans;
+    CorpusRetval ans {
+        nullptr,
+        nullptr
+    };
     try {
         ans.value = new Corpus(tmp);
         return ans;
